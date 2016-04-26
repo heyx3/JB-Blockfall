@@ -21,15 +21,17 @@ namespace Gameplay
 		public Vector2 CollisionBoxSize;
 
 
-		public Transform MyTr { get; private set; }
 		public Vector2 MyVelocity { get; set; }
-
 		public Rect MyCollRect { get { Rect r = new Rect(Vector2.zero, CollisionBoxSize); r.center = MyTr.position; return r; } }
+
+		public Transform MyTr { get; private set; }
+		public SpriteRenderer MySpr { get; protected set; }
 
 
 		protected virtual void Awake()
 		{
 			MyTr = transform;
+			MySpr = GetComponent<SpriteRenderer>();
 			MyVelocity = Vector2.zero;
 		}
 		protected virtual void OnEnable()

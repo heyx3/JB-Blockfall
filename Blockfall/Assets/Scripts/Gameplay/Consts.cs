@@ -13,5 +13,10 @@ namespace Gameplay
 		public float JumpSpeed = 5.0f;
 
 		public int NJumps = 2;
+
+		public float BlockThrowSpeed = 15.0f;
+
+
+		public GameObject ThrownBlockPrefab;
 	}
 }
