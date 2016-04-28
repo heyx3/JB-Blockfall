@@ -19,6 +19,8 @@ namespace Gameplay
 
 
 		public Vector2 CollisionBoxSize;
+		public bool ClampXEnds = true,
+					ClampYEnds = true;
 
 
 		public Vector2 MyVelocity { get; set; }
@@ -58,7 +60,7 @@ namespace Gameplay
 			GameBoard.Board.Instance.GetTileRange(collRect, out tileMin, out tileMax);
 
 			//Along the X.
-			if (MyVelocity.x != 0.0f)
+			if (true || MyVelocity.x != 0.0f)
 			{
 				float deltaX = MyVelocity.x * Time.deltaTime;
 				Rect newCollRect = new Rect(Vector2.zero, CollisionBoxSize);
@@ -153,7 +155,7 @@ namespace Gameplay
 			}
 
 			//Along the Y.
-			if (MyVelocity.y != 0.0f)
+			if (true || MyVelocity.y != 0.0f)
 			{
 				float deltaY = MyVelocity.y * Time.deltaTime;
 				Rect newCollRect = new Rect(Vector2.zero, CollisionBoxSize);
@@ -254,6 +256,45 @@ namespace Gameplay
 				if (this != objectsInWorld[i] && collRect.Overlaps(objectsInWorld[i].MyCollRect))
 				{
 					OnHitDynamicObject(objectsInWorld[i], ref newPos);
+				}
+			}
+
+
+			collRect = MyCollRect;
+			if (ClampXEnds)
+			{
+				Rect minBlock = Board.ToWorldRect(new Vector2i()),
+					 maxBlock = Board.ToWorldRect(new Vector2i(Board.Width - 1, Board.Height - 1));
+
+				if (collRect.xMin < minBlock.xMax)
+				{
+					float deltaX = minBlock.xMax - collRect.xMin;
+					MyTr.position += new Vector3(deltaX, 0.0f, 0.0f);
+					collRect = new Rect(collRect.x + deltaX, collRect.y, collRect.width, collRect.height);
+				}
+				if (collRect.xMax > maxBlock.xMin)
+				{
+					float deltaX = maxBlock.xMin - collRect.xMax;
+					MyTr.position += new Vector3(deltaX, 0.0f, 0.0f);
+					collRect = new Rect(collRect.x + deltaX, collRect.y, collRect.width, collRect.height);
+				}
+			}
+			if (ClampYEnds)
+			{
+				Rect minBlock = Board.ToWorldRect(new Vector2i()),
+					 maxBlock = Board.ToWorldRect(new Vector2i(Board.Width - 1, Board.Height - 1));
+
+				if (collRect.yMin < minBlock.yMax)
+				{
+					float deltaY = minBlock.yMax - collRect.yMin;
+					MyTr.position += new Vector3(0.0f, deltaY, 0.0f);
+					collRect = new Rect(collRect.x, collRect.y + deltaY, collRect.width, collRect.height);
+				}
+				if (collRect.yMax > maxBlock.yMin)
+				{
+					float deltaX = maxBlock.xMin - collRect.xMax;
+					MyTr.position += new Vector3(deltaX, 0.0f, 0.0f);
+					collRect = new Rect(collRect.x + deltaX, collRect.y, collRect.width, collRect.height);
 				}
 			}
 

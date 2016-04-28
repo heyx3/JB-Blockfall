@@ -109,10 +109,33 @@ namespace GameBoard
 
 		public BlockTypes this[Vector2i tileIndex]
 		{
-			get { return tiles[tileIndex.x, tileIndex.y].Type; }
+			get
+			{
+				if (tileIndex.x < 0 || tileIndex.y < 0 ||
+					tileIndex.x >= Width || tileIndex.y >= Height)
+				{
+					return BlockTypes.Immobile;
+				}
+
+				return tiles[tileIndex.x, tileIndex.y].Type;
+			}
 		}
 
 		
+		public bool CanPickUp(Vector2i pos)
+		{
+			switch (this[pos])
+			{
+				case BlockTypes.Empty:
+				case BlockTypes.Immobile:
+					return false;
+				case BlockTypes.Normal:
+					return true;
+
+				default: throw new NotImplementedException("Unexpected block type " + this[pos]);
+			}
+		}
+
 		/// <summary>
 		/// This operation fails if a block doesn't exist at the given position.
 		/// </summary>

@@ -18,5 +18,8 @@ namespace Gameplay
 
 
 		public GameObject ThrownBlockPrefab;
+
+		public Sprite Sprite_Player_Stand, Sprite_Player_Walk, Sprite_Player_Jump, Sprite_Player_Fall,
+					  Sprite_Player_StandBlock, Sprite_Player_WalkBlock, Sprite_Player_JumpBlock, Sprite_Player_FallBlock;
 	}
 }
