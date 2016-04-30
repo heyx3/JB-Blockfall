@@ -5,6 +5,9 @@ using UnityEngine;
 
 namespace GameBoard.Generators
 {
+	/// <summary>
+	/// Generates a flat ground of normal blocks and a ring of immobile blocks keeping players in the map.
+	/// </summary>
 	public class TestGenerator : BaseGenerator
 	{
 		public int NTilesX = 10,
