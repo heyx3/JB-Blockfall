@@ -90,29 +90,15 @@ namespace Gameplay
 						Vector2i tilePos = new Vector2i(x, y);
 
 						GameBoard.BlockTypes bType = Board[tilePos];
-						bool shouldBreak = false;
-						switch (bType)
-						{
-							case GameBoard.BlockTypes.Empty:
-								break;
-
-							case GameBoard.BlockTypes.Immobile:
-							case GameBoard.BlockTypes.Normal:
-
-								Rect tileRect = Board.ToWorldRect(tilePos);
-								if (tileRect.Overlaps(newCollRect))
-								{
-									ysToClosestXs.Add(y, x);
-									shouldBreak = true;
-								}
-
-								break;
-
-							default: throw new NotImplementedException(bType.ToString() + ": {" + x + ", " + y + "}");
-						}
-
-						if (shouldBreak)
-							break;
+                        if (GameBoard.BlockQueries.IsSolid(Board[tilePos]))
+                        {
+                            Rect tileRect = Board.ToWorldRect(tilePos);
+                            if (tileRect.Overlaps(newCollRect))
+                            {
+                                ysToClosestXs.Add(y, x);
+                                break;
+                            }
+                        }
 					}
 				}
 
@@ -185,29 +171,15 @@ namespace Gameplay
 						Vector2i tilePos = new Vector2i(x, y);
 
 						GameBoard.BlockTypes bType = Board[tilePos];
-						bool shouldBreak = false;
-						switch (bType)
-						{
-							case GameBoard.BlockTypes.Empty:
-								break;
-
-							case GameBoard.BlockTypes.Immobile:
-							case GameBoard.BlockTypes.Normal:
-
-								Rect tileRect = Board.ToWorldRect(tilePos);
-								if (tileRect.Overlaps(newCollRect))
-								{
-									xsToClosestYs.Add(x, y);
-									shouldBreak = true;
-								}
-
-								break;
-
-							default: throw new NotImplementedException(bType.ToString() + ": {" + x + ", " + y + "}");
-						}
-
-						if (shouldBreak)
-							break;
+                        if (GameBoard.BlockQueries.IsSolid(Board[tilePos]))
+                        {
+                            Rect tileRect = Board.ToWorldRect(tilePos);
+                            if (tileRect.Overlaps(newCollRect))
+                            {
+                                xsToClosestYs.Add(x, y);
+                                break;
+                            }
+                        }
 					}
 				}
 
@@ -259,7 +231,7 @@ namespace Gameplay
 				}
 			}
 
-
+            
 			collRect = MyCollRect;
 			if (ClampXEnds)
 			{

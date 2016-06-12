@@ -5,9 +5,11 @@ using UnityEngine;
 
 namespace Gameplay
 {
+    [RequireComponent(typeof(BlinkRenderer))]
 	public class Player : DynamicObject
 	{
 		public int InputIndex = InputManager.FirstKeyboardInput;
+
 		public string BlockHoldChildName = "Block Hold Position",
 					  GrabForwardsChildName = "Grab Forwards Pos",
 					  GrabBackwardsChildName = "Grab Backwards Pos",
@@ -18,11 +20,24 @@ namespace Gameplay
 					  GrabForwardsBelowChildName = "Grab Forwards/Below Pos",
 					  GrabBackwardsBelowChildName = "Grab Backwards/Below Pos";
 
-		[NonSerialized]
+        /// <summary>
+        /// The player is invincible for this long when first created.
+        /// </summary>
+        public float SpawnInvincibleTime = 2.0f;
+
+
+        [NonSerialized]
 		public int JumpsLeft;
 
+        [NonSerialized]
+        public float TimeTillVulnerable = -1.0f;
 
-		public bool IsOnGround { get; private set; }
+
+        public bool IsInvincible { get { return TimeTillVulnerable > 0.0f; } }
+
+        public BlinkRenderer Blinker { get; private set; }
+
+        public bool IsOnGround { get; private set; }
 
 		public GameBoard.BlockTypes HoldingBlock { get; private set; }
 		
@@ -91,6 +106,9 @@ namespace Gameplay
 		{
 			base.Awake();
 
+            Blinker = GetComponent<BlinkRenderer>();
+            TimeTillVulnerable = SpawnInvincibleTime;
+
 			HoldingBlock = GameBoard.BlockTypes.Empty;
 			IsOnGround = false;
 			JumpsLeft = 0;
@@ -105,8 +123,23 @@ namespace Gameplay
 			GrabBackwardsAboveIndicator = TryGetChild(GrabBackwardsAboveChildName);
 			GrabBackwardsBelowIndicator = TryGetChild(GrabBackwardsBelowChildName);
 		}
+        void Start()
+        {
+            TimeTillVulnerable = SpawnInvincibleTime;
+            Blinker.enabled = true;
+        }
 		void Update()
 		{
+            //Update invincibility.
+            if (TimeTillVulnerable > 0.0f)
+            {
+                Blinker.enabled = true;
+                TimeTillVulnerable -= Time.deltaTime;
+                if (TimeTillVulnerable <= 0.0f)
+                    Blinker.Stop();
+            }
+
+            
 			InputManager.Values inputs = InputManager.Instance.Inputs[InputIndex],
 							    inputsLastFrame = InputManager.Instance.InputsLastFrame[InputIndex];
 
@@ -123,7 +156,7 @@ namespace Gameplay
 			}
 
 			//Jump.
-			if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
+            if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
 			{
 				JumpsLeft -= 1;
 				MyVelocity = new Vector2(MyVelocity.x, Consts.Instance.JumpSpeed);
@@ -140,7 +173,7 @@ namespace Gameplay
 																		  (inputs.Move.x != 0)))
 					{
 						Vector2i tilePos = Board.ToTilePos(indicator.position);
-						if (Board.CanPickUp(tilePos))
+						if (GameBoard.BlockQueries.CanPickUp(Board[tilePos]))
 						{
 							HoldingBlock = Board[tilePos];
 							Board.RemoveBlockAt(tilePos);
@@ -180,6 +213,10 @@ namespace Gameplay
 
 			newVel.x = inputs.Move.x * Consts.Instance.PlayerSpeed;
 
+            if (newVel.y < 0.0f && inputs.Jump)
+            {
+                newVel.y += Consts.Instance.SlowFallAccel * Time.deltaTime;
+            }
 			if (inputs.Move.y < 0.0f)
 			{
 				newVel.y += Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime;

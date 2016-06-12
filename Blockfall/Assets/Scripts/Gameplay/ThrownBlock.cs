@@ -42,7 +42,7 @@ namespace Gameplay
 			Vector2i tilePos = Board.ToTilePos(nextPos);
 
 			Player p = other as Player;
-			if (p != null)
+			if (p != null && !p.IsInvincible)
 			{
 				if (Owner != p)
 				{
