@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 
 namespace GameBoard
@@ -125,45 +126,42 @@ namespace GameBoard
 		/// If there was a hit, gets set to the position of the ray's hit.
 		/// </param>
 		public Vector2i CastRay(Ray2D ray, Func<Vector2i, BlockTypes, bool> isBlockPassable,
-								ref Vector2 outHitPos, ref float outHitT, ref int outHitDir)
+								ref Vector2 outHitPos, ref float outHitT, ref int outHitDir,
+								float maxDist = float.PositiveInfinity)
 		{
-			float epsilon = 0.001f;
-			Vector2 rayDirEpsilon = ray.direction * epsilon;
+			float epsilon = 0.01f;
 			Vector2 rayInvDir = new Vector2(1.0f / ray.direction.x, 1.0f / ray.direction.y);
 
-			Vector2i startPosI = ToTilePos(ray.origin);
+			Vector2i posI = ToTilePos(ray.origin);
 
 			//Edge-case: the ray started in a solid block.
-			if (startPosI.x >= 0 && startPosI.x < Width &&
-				startPosI.y >= 0 && startPosI.y < Height &&
-				!isBlockPassable(startPosI, this[startPosI]))
+			if (posI.x >= 0 && posI.x < Width &&
+				posI.y >= 0 && posI.y < Height &&
+				!isBlockPassable(posI, this[posI]))
 			{
 				//If the ray is facing towards the center of the block,
 				//    cast backwards to find where it intersects the wall.
 				//Otherwise, cast forward.
 				float _dir = 1.0f;
-				if (Vector2.Dot(ray.direction, ToWorldPos(startPosI) - ray.origin) > 0.0f)
+				if (Vector2.Dot(ray.direction, ToWorldPos(posI) - ray.origin) > 0.0f)
 					_dir = -1.0f;
 
-				float dummyT;
-				Vector2 dummyP;
-				int dummyD;
+				float dummyT = float.NaN;
+				Vector2 dummyP = Vector2.zero;
+				int dummyD = -1;
 				uint _nHits = MyMath.RaycastBox(new Ray2D(ray.origin, ray.direction * _dir),
 												rayInvDir * _dir,
-												ToWorldRect(startPosI),
+												ToWorldRect(posI),
 											    ref outHitT, ref dummyT,
 												ref outHitPos, ref dummyP,
 											    ref outHitDir, ref dummyD);
-				UnityEngine.Assertions.Assert.IsTrue(_nHits == 1, "Expected 1 hit!");
-				return startPosI;
+				Assert.IsTrue(_nHits == 1, "Expected 1 hit!");
+				return posI;
 			}
 
-
 			//Get the ray's start and end point in the world box.
-			Rect startWB = ToWorldRect(new Vector2i(0, 0)),
-				 endWB = ToWorldRect(new Vector2i(Width - 1, Height - 1)),
-				 worldBounds = Rect.MinMaxRect(startWB.xMin, startWB.yMin,
-											   endWB.xMax, endWB.yMax);
+			Rect worldBounds = ToWorldRect(new Vector2i(0, 0))
+								   .Union(ToWorldRect(new Vector2i(Width - 1, Height - 1)));
 			float startT = 0.0f,
 				  endT = 0.0f;
 			Vector2 startPos = Vector2.zero,
@@ -174,6 +172,8 @@ namespace GameBoard
 										   ref startT, ref endT,
 										   ref startPos, ref endPos,
 										   ref startD, ref endD);
+			float worldEndT;
+
 			//If there were no hits, the ray never touches the tile grid.
 			if (nHits == 0)
 			{
@@ -181,6 +181,35 @@ namespace GameBoard
 			}
 			//If there was only one hit, the ray started inside the tile grid.
 			else if (nHits == 1)
+			{
+				//Because there was only one hit, the "startX" variables right now actually store
+				//    the *end* of the ray.
+
+				worldEndT = startT;
+
+				endT = startT;
+				endPos = startPos;
+				endD = startD;
+
+				startT = 0.0f;
+				startPos = ray.origin;
+				startD = 0;
+			}
+			else
+			{
+				worldEndT = endT;
+			}
+			worldEndT = Math.Min(worldEndT, maxDist);
+
+			posI = ToTilePos(startPos + (ray.direction * epsilon));
+
+
+			//Now cast through each block until a solid one is hit or we pass through the grid.
+			Rect tileBounds = ToWorldRect(posI);
+			nHits = MyMath.RaycastBox(ray, rayInvDir, tileBounds,
+								      ref startT, ref endT, ref startPos, ref endPos,
+									  ref startD, ref endD);
+			if (nHits == 1)
 			{
 				//Because there was only one hit, the "startX" variables right now actually store
 				//    the *end* of the ray.
@@ -193,40 +222,71 @@ namespace GameBoard
 				startPos = ray.origin;
 				startD = 0;
 			}
-
-
-			//Now cast through each block until a solid one is hit or we pass through the grid.
-
-			float t1 = float.NaN, t2 = float.NaN;
-			Vector2 p1 = Vector2.zero, p2 = Vector2.zero;
-			int d1 = -1, d2 = -1;
-			nHits = MyMath.RaycastBox(ray, rayInvDir, ToWorldRect(startPosI),
-								      ref t1, ref t2, ref p1, ref p2, ref d1, ref d2);
-			UnityEngine.Assertions.Assert.IsTrue(nHits > 0, "nHits is 0??");
-
-			//TODO: fix this loop.
-			while (startPosI.x >= 0 && startPosI.x < Width &&
-				   startPosI.y >= 0 && startPosI.y < Height)
+			else
 			{
-				if (isBlockPassable(currentPosI, this[currentPosI]))
+				Assert.IsTrue(nHits == 2, "nHits is " + nHits.ToString());
+			}
+
+			while (startT < worldEndT)
+			{
+				Assert.IsTrue(posI.x >= 0 && posI.x < Width && posI.y >= 0 && posI.y < Height,
+							  posI.ToString() + " is out of bounds: " + new Vector2i(Width, Height));
+
+				if (isBlockPassable(posI, this[posI]))
 				{
-					//Move to the end of the block.
-					currentT = endT + epsilon;
-					currentPos = endPos + rayDirEpsilon;
-
-					currentPosI = ToTilePos(currentPos);
-
-					startT = endT - epsilon;
-					startPos = endPos - rayDirEpsilon;
-					startD = endD;
+					//Edge-case: the ray passes exactly through a corner.
+					//In this case, the next block to cast through is *diagonal* to this one.
+					if (nHits == 1 && ((endPos.x == tileBounds.xMin || endPos.x == tileBounds.xMax) &&
+									   (endPos.y == tileBounds.yMin || endPos.y == tileBounds.yMax)))
+					{
+						if (ray.direction.x > 0.0f)
+							posI = posI.MoreX;
+						else
+						{
+							Assert.IsTrue(ray.direction.x < 0.0f, "Ray X is 0??");
+							posI = posI.LessX;
+						}
+						if (ray.direction.y > 0.0f)
+							posI = posI.MoreY;
+						else
+						{
+							Assert.IsTrue(ray.direction.y < 0.0f, "Ray Y is 0??");
+							posI = posI.LessY;
+						}
+					}
+					//Otherwise, move to an adjacent orthogonal block based on the edge that was hit.
+					else if (endD == 0)
+					{
+						if (ray.direction.x > 0.0f)
+							posI = posI.MoreX;
+						else
+						{
+							Assert.IsTrue(ray.direction.x < 0.0f, "Ray X is 0??");
+							posI = posI.LessX;
+						}
+					}
+					else
+					{
+						if (ray.direction.y > 0.0f)
+							posI = posI.MoreY;
+						else
+						{
+							Assert.IsTrue(ray.direction.y < 0.0f, "Ray Y is 0??");
+							posI = posI.LessY;
+						}
+					}
+					tileBounds = ToWorldRect(posI);
+					nHits = MyMath.RaycastBox(ray, rayInvDir, tileBounds,
+											  ref startT, ref endT, ref startPos, ref endPos,
+											  ref startD, ref endD);
+					Assert.IsTrue(nHits > 0, "nHits is " + nHits);
 				}
 				else
 				{
-					outHitT = t1;
-					outHitPos = p1;
-					outHitDir = d1;
-
-					return startPosI;
+					outHitT = startT;
+					outHitPos = startPos;
+					outHitDir = startD;
+					return posI;
 				}
 			}
 

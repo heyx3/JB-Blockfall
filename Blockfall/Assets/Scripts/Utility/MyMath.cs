@@ -11,12 +11,23 @@ public static class MyMath
 	public static Vector2 Mult(this Vector2 a, Vector2 b) { return new Vector2(a.x * b.x, a.y * b.y); }
 
 
+	public static Rect Union(this Rect r, Rect r2) { return Rect.MinMaxRect(Math.Min(r.xMin, r2.xMin),
+																			Math.Min(r.yMin, r2.yMin),
+																			Math.Max(r.xMax, r2.xMax),
+																			Math.Max(r.yMax, r2.yMax)); }
+
+	public static string ToString(this Vector2 v, int nDecimals)
+	{
+		return "{" + Math.Round(v.x, nDecimals) + ", " + Math.Round(v.y, nDecimals) + "}";
+	}
+
+
 	/// <summary>
 	/// Returns 0 if there were no intersections,
 	///     1 if there was one intersection (i.e. the ray started inside the box),
 	///     and 2 if there were two intersections.
 	/// The "outHitD" output parameters are either 0 or 1 --
-	///     0 means the intersection was along the X; 1 along the Y.
+	///     0 means the intersection was along the X face; 1 along the Y face.
 	/// </summary>
 	/// <param name="rayInvDir">The precomputed reciprocal of the ray's direction.</param>
 	public static uint RaycastBox(Ray2D ray, Vector2 rayInvDir, Rect box,
@@ -89,7 +100,7 @@ public static class MyMath
 			x = (ray.direction.x * tempP.T) + ray.origin.x;
 			if (tempP.T >= 0.0f && (x >= min.x && x <= max.x))
 			{
-				tempP.Pos = new Vector2(x, min.y);
+				tempP.Pos = new Vector2(x, max.y);
 				RaycastBoxHelper(ref p1, ref p2, tempP);
 			}
 		}
@@ -104,7 +115,7 @@ public static class MyMath
 			outHitP1 = p1.Pos;
 			outHitD1 = p1.D;
 
-			if (p2.T == float.PositiveInfinity)
+			if (p2.T == float.PositiveInfinity || p2.T == p1.T)
 			{
 				return 1;
 			}
