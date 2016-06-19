@@ -14,24 +14,24 @@ namespace Gameplay
 			MyVelocity = ConstantVelocity;
 		}
 
-		public override void OnHitCeiling(Vector2i ceilingPos, ref Vector2 nextPos)
+		public override void OnHitCeiling(Vector2i ceilingPos)
 		{
 			Debug.Log("Hit ceiling");
 		}
-		public override void OnHitFloor(Vector2i floorPos, ref Vector2 nextPos)
+		public override void OnHitFloor(Vector2i floorPos)
 		{
 			Debug.Log("Hit floor");
 		}
-		public override void OnHitLeftSide(Vector2i wallPos, ref Vector2 nextPos)
+		public override void OnHitLeftSide(Vector2i wallPos)
 		{
 			Debug.Log("Hit left side");
 		}
-		public override void OnHitRightSide(Vector2i wallPos, ref Vector2 nextPos)
+		public override void OnHitRightSide(Vector2i wallPos)
 		{
 			Debug.Log("Hit right side");
 		}
 
-		public override void OnHitDynamicObject(DynamicObject other, ref Vector2 nextPos)
+		public override void OnHitDynamicObject(DynamicObject other)
 		{
 			Debug.Log(gameObject.name + " hit " + other.gameObject.name);
 		}

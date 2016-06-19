@@ -11,6 +11,11 @@ namespace Gameplay
 	/// </summary>
 	public abstract class DynamicObject : MonoBehaviour
 	{
+		private static bool AllowsMovement(Vector2i tilePos, GameBoard.BlockTypes block)
+		{
+			return !GameBoard.BlockQueries.IsSolid(block);
+		}
+
 		private static List<DynamicObject> objectsInWorld = new List<DynamicObject>();
 
 		public IEnumerable<DynamicObject> ObjectsInWorld { get { return objectsInWorld; } }
@@ -22,13 +27,15 @@ namespace Gameplay
 		public bool ClampXEnds = true,
 					ClampYEnds = true;
 
+		public uint NCollisionRaysPerUnit = 5;
+
 
 		public Vector2 MyVelocity { get; set; }
 		public Rect MyCollRect { get { Rect r = new Rect(Vector2.zero, CollisionBoxSize); r.center = MyTr.position; return r; } }
 
 		public Transform MyTr { get; private set; }
 		public SpriteRenderer MySpr { get; protected set; }
-
+		
 
 		protected virtual void Awake()
 		{
@@ -46,232 +53,136 @@ namespace Gameplay
 		}
 		protected virtual void FixedUpdate()
 		{
-			//Move.
-
-			Vector2 oldPos = (Vector2)MyTr.position;
-			Vector2 newPos = oldPos;
-
-			Rect collRect = new Rect(Vector2.zero, CollisionBoxSize);
-			collRect.center = oldPos;
-
-
-			//Check for collisions with tiles.
-			Vector2i tileMin, tileMax;
-			GameBoard.Board.Instance.GetTileRange(collRect, out tileMin, out tileMax);
-
-			//Along the X.
-			if (true || MyVelocity.x != 0.0f)
+			//Move and do collision detection.
+			//Collision detection is done by casting several rays forward from the collision box
+			//    along the player's velocity, and finding the closest collision.
+			if (MyVelocity.x != 0.0f || MyVelocity.y != 0.0f)
 			{
-				float deltaX = MyVelocity.x * Time.deltaTime;
-				Rect newCollRect = new Rect(Vector2.zero, CollisionBoxSize);
-				newCollRect.center = new Vector2(newPos.x + deltaX, newPos.y);
+				Rect collRect = MyCollRect;
 
-				//Get the forward edge of the bounding box before and after movement.
-				int forwardEdge, nextEdge, moveDir;
-				if (MyVelocity.x < 0.0f)
-				{
-					forwardEdge = Board.ToTilePosX(collRect.xMin);
-					nextEdge = Board.ToTilePosX(newCollRect.xMin);
-					moveDir = -1;
-				}
-				else
-				{
-					forwardEdge = Board.ToTilePosX(collRect.xMax);
-					nextEdge = Board.ToTilePosX(newCollRect.xMax);
-					moveDir = 1;
-				}
+				float speed = MyVelocity.magnitude,
+					  delta = speed * Time.deltaTime;
+				Vector2 velocityNorm = MyVelocity / speed;
+				Vector2 actualMovement = velocityNorm * delta;
 
-				//Get the closest block that is blocking the player's way along each row.
-				Dictionary<int, int> ysToClosestXs = new Dictionary<int,int>(tileMax.y - tileMin.y + 1);
-				for (int y = tileMin.y; y <= tileMax.y; ++y)
+				bool didHit = false;
+				WallsMap<BoxRayHit> hitWalls = new WallsMap<BoxRayHit>();
+
+				//Get the x and y face to cast from given the velocity.
+				Vector2 fromCorner = collRect.center +
+									 (collRect.size * 0.5f).Mult(new Vector2(MyVelocity.x.Sign(),
+																			 MyVelocity.y.Sign()));
+
+				//Cast out from the corner along the velocity direction.
 				{
-					for (int x = forwardEdge; x != nextEdge + moveDir; x += moveDir)
+					BoxRayHit hit = new BoxRayHit();
+					Vector2i tileHit = Board.CastRay(new Ray2D(fromCorner, velocityNorm),
+													 AllowsMovement, ref hit, delta + 0.001f);
+					if (tileHit != new Vector2i(-1, -1))
 					{
-						Vector2i tilePos = new Vector2i(x, y);
+						didHit = true;
 
-						GameBoard.BlockTypes bType = Board[tilePos];
-                        if (GameBoard.BlockQueries.IsSolid(Board[tilePos]))
-                        {
-                            Rect tileRect = Board.ToWorldRect(tilePos);
-                            if (tileRect.Overlaps(newCollRect))
-                            {
-                                ysToClosestXs.Add(y, x);
-                                break;
-                            }
-                        }
+						if (hit.IsXFace)
+							actualMovement.x = hit.Pos.x - fromCorner.x - (MyVelocity.x.Sign() * 0.0001f);
+						else
+							actualMovement.y = hit.Pos.y - fromCorner.y - (MyVelocity.y.Sign() * 0.0001f);
+
+						hitWalls.Set(hit.Wall, hit);
 					}
 				}
 
-				if (ysToClosestXs.Count > 0)
+				//Cast out from the X face along the velocity's X direction.
+				if (MyVelocity.x != 0.0f)
 				{
-					//Get the closest single tile and collide with it.
-					Vector2i closestTile = new Vector2i(int.MinValue, int.MinValue);
-					foreach (KeyValuePair<int, int> yThenX in ysToClosestXs)
+					float velDir = MyVelocity.x.Sign();
+					float yMin = collRect.yMin,
+						  yMax = collRect.yMax;
+
+					float yIncrement = 1.0f / NCollisionRaysPerUnit;
+					BoxRayHit hit = new BoxRayHit();
+					for (float y = yMin + yIncrement; y <= yMax; y += yIncrement)
 					{
-						if (closestTile.x == int.MinValue ||
-							(moveDir == 1 && closestTile.x > yThenX.Value) ||
-							(moveDir == -1 && closestTile.x < yThenX.Value))
+						Vector2 rayStart = new Vector2(fromCorner.x, y);
+						Vector2i hitPos = Board.CastRay(new Ray2D(rayStart, new Vector2(velDir, 0.0f)),
+														AllowsMovement, ref hit,
+														delta + 0.001f);
+						if (hitPos != new Vector2i(-1, -1))
 						{
-							closestTile = new Vector2i(yThenX.Value, yThenX.Key);
+							if (!hitWalls.Contains(hit.Wall) ||
+								hit.Distance < hitWalls.Get(hit.Wall).Distance)
+							{
+								didHit = true;
+								actualMovement.x = hit.Pos.x - rayStart.x - (velDir * 0.0001f);
+								hitWalls.Set(hit.Wall, hit);
+							}
 						}
 					}
+				}
+				//Cast out from the Y face.
+				if (MyVelocity.y != 0.0f)
+				{
+					//Pick the face whose normal points in the same direction as the velocity.
+					float velDir = MyVelocity.y.Sign();
+					float xMin = collRect.xMin,
+						  xMax = collRect.xMax;
 
-					Rect tileRect = Board.ToWorldRect(closestTile);
-
-					if (moveDir == -1)
+					float xIncrement = 1.0f / NCollisionRaysPerUnit;
+					BoxRayHit hit = new BoxRayHit();
+					for (float x = xMin + xIncrement; x <= xMax; x += xIncrement)
 					{
-						newPos.x = tileRect.xMax + (CollisionBoxSize.x * 0.5f); //+ 0.0001f;
-						OnHitLeftSide(closestTile, ref newPos);
-					}
-					else
-					{
-						newPos.x = tileRect.xMin - (CollisionBoxSize.x * 0.5f); // - 0.0001f;
-						OnHitRightSide(closestTile, ref newPos);
-					}
-				}
-				else
-				{
-					newPos.x += deltaX;
-				}
-
-
-				//Update the collision rectangle.
-				collRect = new Rect(Vector2.zero, CollisionBoxSize);
-				collRect.center = newPos;
-			}
-
-			//Along the Y.
-			if (true || MyVelocity.y != 0.0f)
-			{
-				float deltaY = MyVelocity.y * Time.deltaTime;
-				Rect newCollRect = new Rect(Vector2.zero, CollisionBoxSize);
-				newCollRect.center = new Vector2(newPos.x, newPos.y + deltaY);
-
-				//Get the forward edge of the bounding box before and after movement.
-				int forwardEdge, nextEdge, moveDir;
-				if (MyVelocity.y < 0.0f)
-				{
-					forwardEdge = Board.ToTilePosY(collRect.yMin);
-					nextEdge = Board.ToTilePosY(newCollRect.yMin);
-					moveDir = -1;
-				}
-				else
-				{
-					forwardEdge = Board.ToTilePosY(collRect.yMax);
-					nextEdge = Board.ToTilePosY(newCollRect.yMax);
-					moveDir = 1;
-				}
-
-				//Get the closest block that is blocking the player's way along each row.
-				Dictionary<int, int> xsToClosestYs = new Dictionary<int,int>(tileMax.x - tileMin.x + 1);
-				for (int x = tileMin.x; x <= tileMax.x; ++x)
-				{
-					for (int y = forwardEdge; y != nextEdge + moveDir; y += moveDir)
-					{
-						Vector2i tilePos = new Vector2i(x, y);
-
-						GameBoard.BlockTypes bType = Board[tilePos];
-                        if (GameBoard.BlockQueries.IsSolid(Board[tilePos]))
-                        {
-                            Rect tileRect = Board.ToWorldRect(tilePos);
-                            if (tileRect.Overlaps(newCollRect))
-                            {
-                                xsToClosestYs.Add(x, y);
-                                break;
-                            }
-                        }
-					}
-				}
-
-				if (xsToClosestYs.Count > 0)
-				{
-					//Get the closest single tile and collide with it.
-					Vector2i closestTile = new Vector2i(int.MinValue, int.MinValue);
-					foreach (KeyValuePair<int, int> xThenY in xsToClosestYs)
-					{
-						if (closestTile.y == int.MinValue ||
-							(moveDir == 1 && closestTile.y > xThenY.Value) ||
-							(moveDir == -1 && closestTile.y < xThenY.Value))
+						Vector2 rayStart = new Vector2(x, fromCorner.y);
+						Vector2i hitPos = Board.CastRay(new Ray2D(rayStart, new Vector2(0.0f, velDir)),
+														AllowsMovement, ref hit,
+														delta + 0.001f);
+						if (hitPos != new Vector2i(-1, -1))
 						{
-							closestTile = new Vector2i(xThenY.Key, xThenY.Value);
+							if (!hitWalls.Contains(hit.Wall) ||
+								hit.Distance < hitWalls.Get(hit.Wall).Distance)
+							{
+								didHit = true;
+								actualMovement.y = hit.Pos.y - rayStart.y - (velDir * 0.0001f);
+								hitWalls.Set(hit.Wall, hit);
+							}
 						}
 					}
-
-					Rect tileRect = Board.ToWorldRect(closestTile);
-
-					if (moveDir == -1)
-					{
-						newPos.y = tileRect.yMax + (CollisionBoxSize.y * 0.5f); //+ 0.0001f;
-						OnHitFloor(closestTile, ref newPos);
-					}
-					else
-					{
-						newPos.y = tileRect.yMin - (CollisionBoxSize.y * 0.5f); // - 0.0001f;
-						OnHitCeiling(closestTile, ref newPos);
-					}
 				}
-				else
+
+
+				MyTr.position = (Vector3)((Vector2)MyTr.position + actualMovement);
+
+				//If there was a collision with a surface, stop the velocity in that direction.
+				if (didHit)
 				{
-					newPos.y += deltaY;
+					if (hitWalls.Contains(Walls.MinX))
+					{
+						MyVelocity = new Vector2(0.0f, MyVelocity.y);
+						OnHitRightSide(Board.ToTilePos(hitWalls.Get(Walls.MinX).Pos));
+					}
+					else if (hitWalls.Contains(Walls.MaxX))
+					{
+						MyVelocity = new Vector2(0.0f, MyVelocity.y);
+						OnHitLeftSide(Board.ToTilePos(hitWalls.Get(Walls.MaxX).Pos));
+					}
+
+					if (hitWalls.Contains(Walls.MinY))
+					{
+						MyVelocity = new Vector2(MyVelocity.x, 0.0f);
+						OnHitCeiling(Board.ToTilePos(hitWalls.Get(Walls.MinY).Pos));
+					}
+					else if (hitWalls.Contains(Walls.MaxY))
+					{
+						MyVelocity = new Vector2(MyVelocity.x, 0.0f);
+						OnHitFloor(Board.ToTilePos(hitWalls.Get(Walls.MaxY).Pos));
+					}
 				}
-
-
-				//Update the collision rectangle.
-				collRect = new Rect(Vector2.zero, CollisionBoxSize);
-				collRect.center = newPos;
 			}
 
 
 			//Check for collisions with other DynamicObjects.
+			Rect collBnds = MyCollRect;
 			for (int i = 0; i < objectsInWorld.Count; ++i)
-			{
-				if (this != objectsInWorld[i] && collRect.Overlaps(objectsInWorld[i].MyCollRect))
-				{
-					OnHitDynamicObject(objectsInWorld[i], ref newPos);
-				}
-			}
-
-            
-			collRect = MyCollRect;
-			if (ClampXEnds)
-			{
-				Rect minBlock = Board.ToWorldRect(new Vector2i()),
-					 maxBlock = Board.ToWorldRect(new Vector2i(Board.Width - 1, Board.Height - 1));
-
-				if (collRect.xMin < minBlock.xMax)
-				{
-					float deltaX = minBlock.xMax - collRect.xMin;
-					MyTr.position += new Vector3(deltaX, 0.0f, 0.0f);
-					collRect = new Rect(collRect.x + deltaX, collRect.y, collRect.width, collRect.height);
-				}
-				if (collRect.xMax > maxBlock.xMin)
-				{
-					float deltaX = maxBlock.xMin - collRect.xMax;
-					MyTr.position += new Vector3(deltaX, 0.0f, 0.0f);
-					collRect = new Rect(collRect.x + deltaX, collRect.y, collRect.width, collRect.height);
-				}
-			}
-			if (ClampYEnds)
-			{
-				Rect minBlock = Board.ToWorldRect(new Vector2i()),
-					 maxBlock = Board.ToWorldRect(new Vector2i(Board.Width - 1, Board.Height - 1));
-
-				if (collRect.yMin < minBlock.yMax)
-				{
-					float deltaY = minBlock.yMax - collRect.yMin;
-					MyTr.position += new Vector3(0.0f, deltaY, 0.0f);
-					collRect = new Rect(collRect.x, collRect.y + deltaY, collRect.width, collRect.height);
-				}
-				if (collRect.yMax > maxBlock.yMin)
-				{
-					float deltaX = maxBlock.xMin - collRect.xMax;
-					MyTr.position += new Vector3(deltaX, 0.0f, 0.0f);
-					collRect = new Rect(collRect.x + deltaX, collRect.y, collRect.width, collRect.height);
-				}
-			}
-
-
-			MyTr.position = newPos;
+				if (this != objectsInWorld[i] && collBnds.Overlaps(objectsInWorld[i].MyCollRect))
+					OnHitDynamicObject(objectsInWorld[i]);
 		}
 
 		protected virtual void OnDrawGizmos()
@@ -285,54 +196,29 @@ namespace Gameplay
 		/// Called when this object hits a wall on its left.
 		/// </summary>
 		/// <param name="wallPos">The tile that was hit.</param>
-		/// <param name="nextPos">
-		/// The object's new position after movement/collision.
-		/// By default, the object is moved so that its bounding box is flush with the wall that was hit.
-		/// You can optionally change it by setting the value of this parameter.
-		/// </param>
-		public virtual void OnHitLeftSide(Vector2i wallPos, ref Vector2 nextPos) { }
+		public virtual void OnHitLeftSide(Vector2i wallPos) { }
 		/// <summary>
 		/// Called when this object hits a wall on its right.
 		/// </summary>
 		/// <param name="wallPos">The tile that was hit.</param>
-		/// <param name="nextPos">
-		/// The object's new position after movement/collision.
-		/// By default, the object is moved so that its bounding box is flush with the wall that was hit.
-		/// You can optionally change it by setting the value of this parameter.
-		/// </param>
-		public virtual void OnHitRightSide(Vector2i wallPos, ref Vector2 nextPos) { }
+		public virtual void OnHitRightSide(Vector2i wallPos) { }
 		/// <summary>
 		/// Called when this object hits a wall above it.
 		/// </summary>
 		/// <param name="wallPos">The tile that was hit.</param>
-		/// <param name="nextPos">
-		/// The object's new position after movement/collision.
-		/// By default, the object is moved so that its bounding box is flush with the tile that was hit.
-		/// You can optionally change it by setting the value of this parameter.
-		/// </param>
-		public virtual void OnHitCeiling(Vector2i ceilingPos, ref Vector2 nextPos) { }
+		public virtual void OnHitCeiling(Vector2i ceilingPos) { }
 		/// <summary>
 		/// Called when this object hits a wall below it.
 		/// </summary>
 		/// <param name="wallPos">The tile that was hit.</param>
-		/// <param name="nextPos">
-		/// The object's new position after movement/collision.
-		/// By default, the object is moved so that its bounding box is flush with the tile that was hit.
-		/// You can optionally change it by modifgyin the value of this parameter.
-		/// </param>
-		public virtual void OnHitFloor(Vector2i floorPos, ref Vector2 nextPos) { }
+		public virtual void OnHitFloor(Vector2i floorPos) { }
 
 		/// <summary>
 		/// Called when this object hits another one.
 		/// Note that the other object will also have this method called on it,
 		///     and the order is nondeterministic.
 		/// </summary>
-		/// <param name="nextPos">
-		/// The object's current position after movement/collision.
-		/// By default, nothing is done to it.
-		/// You can optionally change it by modifying the value of this parameter.
-		/// </param>
-		public virtual void OnHitDynamicObject(DynamicObject other, ref Vector2 nextPos) { }
+		public virtual void OnHitDynamicObject(DynamicObject other) { }
 
 
 		protected void DoActionAfterTime(Action toDo, float time)

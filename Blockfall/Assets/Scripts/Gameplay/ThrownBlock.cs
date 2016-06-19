@@ -16,47 +16,31 @@ namespace Gameplay
 		private bool deadYet = false;
 
 
-		public override void OnHitLeftSide(Vector2i wallPos, ref Vector2 nextPos)
-		{
-			Vector2i tilePos = Board.ToTilePos(nextPos);
-			SettleAt(tilePos);
-		}
-		public override void OnHitRightSide(Vector2i wallPos, ref Vector2 nextPos)
-		{
-			Vector2i tilePos = Board.ToTilePos(nextPos);
-			SettleAt(tilePos);
-		}
-		public override void OnHitFloor(Vector2i floorPos, ref Vector2 nextPos)
-		{
-			Vector2i tilePos = Board.ToTilePos(nextPos);
-			SettleAt(tilePos);
-		}
-		public override void OnHitCeiling(Vector2i ceilingPos, ref Vector2 nextPos)
-		{
-			Vector2i tilePos = Board.ToTilePos(nextPos);
-			SettleAt(tilePos);
-		}
+		public override void OnHitLeftSide(Vector2i wallPos) { Settle(); }
+		public override void OnHitRightSide(Vector2i wallPos) { Settle(); }
+		public override void OnHitFloor(Vector2i floorPos) { Settle(); }
+		public override void OnHitCeiling(Vector2i ceilingPos) { Settle(); }
 
-		public override void OnHitDynamicObject(DynamicObject other, ref Vector2 nextPos)
+		public override void OnHitDynamicObject(DynamicObject other)
 		{
-			Vector2i tilePos = Board.ToTilePos(nextPos);
+			Vector2i tilePos = Board.ToTilePos(MyTr.position);
 
 			Player p = other as Player;
 			if (p != null && !p.IsInvincible)
 			{
 				if (Owner != p)
-				{
-					SettleAt(tilePos);
-				}
+					Settle();
 			}
 			else if (other is ThrownBlock)
 			{
-				SettleAt(tilePos);
+				Settle();
 			}
 		}
 
-		private void SettleAt(Vector2i tilePos)
+		private void Settle()
 		{
+			Vector2i tilePos = Board.ToTilePos((Vector2)MyTr.position);
+
 			if (deadYet)
 				return;
 			deadYet = true;

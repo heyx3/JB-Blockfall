@@ -155,6 +155,28 @@ namespace Gameplay
 											  MyTr.localScale.y, MyTr.localScale.z);
 			}
 
+			//Update ground checking.
+			if (IsOnGround)
+			{
+				Rect collBnds = MyCollRect;
+
+				int y = Board.ToTilePosY(collBnds.yMin);
+				if (y > 0)
+				{
+					int startX = Board.ToTilePosX(collBnds.xMin),
+						endX = Board.ToTilePosX(collBnds.xMax);
+					IsOnGround = false;
+					for (int x = startX; x <= endX; ++x)
+					{
+						if (GameBoard.BlockQueries.IsSolid(Board[new Vector2i(x, y - 1)]))
+						{
+							IsOnGround = true;
+							break;
+						}
+					}
+				}
+			}
+
 			//Jump.
             if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
 			{
@@ -169,7 +191,7 @@ namespace Gameplay
 				//If this player isn't holding a block, pick one up.
 				if (HoldingBlock == GameBoard.BlockTypes.Empty)
 				{
-					foreach (Transform indicator in GetIndicatorsToSearch(Math.Sign(inputs.Move.y),
+					foreach (Transform indicator in GetIndicatorsToSearch(inputs.Move.y.SignI(),
 																		  (inputs.Move.x != 0)))
 					{
 						Vector2i tilePos = Board.ToTilePos(indicator.position);
@@ -227,29 +249,27 @@ namespace Gameplay
 		protected override void FixedUpdate()
 		{
 			//Apply gravity.
-			Vector2 newVel = MyVelocity;
-			newVel.y += Consts.Instance.Gravity * Time.deltaTime;
-			MyVelocity = newVel;
+			if (!IsOnGround)
+			{
+				Vector2 newVel = MyVelocity;
+				newVel.y += Consts.Instance.Gravity * Time.deltaTime;
+				MyVelocity = newVel;
+			}
 
 			//Update collision and see if we're on the ground.
-			if (MyVelocity.y < 0.0f)
-				IsOnGround = false;
+			//if (MyVelocity.y < 0.0f)
+			//	IsOnGround = false;
 			base.FixedUpdate();
 		}
 
 
-		public override void OnHitCeiling(Vector2i ceilingPos, ref Vector2 nextPos)
+		public override void OnHitFloor(Vector2i floorPos)
 		{
-			MyVelocity = new Vector2(MyVelocity.x, Mathf.Min(MyVelocity.y, 0.0f));
-		}
-		public override void OnHitFloor(Vector2i floorPos, ref Vector2 nextPos)
-		{
-			MyVelocity = new Vector2(MyVelocity.x, Mathf.Max(MyVelocity.y, 0.0f));
 			IsOnGround = true;
 			JumpsLeft = Consts.Instance.NJumps;
 		}
 
-		public override void OnHitDynamicObject(DynamicObject other, ref Vector2 nextPos)
+		public override void OnHitDynamicObject(DynamicObject other)
 		{
 			//TODO: React to a thrown block.
 		}
