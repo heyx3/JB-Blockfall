@@ -8,9 +8,8 @@ namespace Tests
 	{
 		public Vector2 StartPos, EndPos;
 		
-		public Vector2 HitPos;
+		BoxRayHit Hit;
 		public Vector2i HitPosI = new Vector2i(-1, -1);
-		public int HitD;
 
 
 		void Update()
@@ -25,12 +24,10 @@ namespace Tests
 			}
 			if (Input.GetMouseButton(2))
 			{
-				float t = float.NaN;
 				HitPosI = GameBoard.Board.Instance.CastRay(new Ray2D(StartPos, (EndPos - StartPos).normalized),
 														   (Vector2i p, GameBoard.BlockTypes bt) =>
 															  (bt == GameBoard.BlockTypes.Empty),
-														   ref HitPos, ref t, ref HitD,
-														   Vector2.Distance(StartPos, EndPos));
+														   ref Hit, Vector2.Distance(StartPos, EndPos));
 			}
 		}
 		void OnGUI()
@@ -54,19 +51,25 @@ namespace Tests
 			if (HitPosI == new Vector2i(-1, -1))
 				return;
 
-			switch (HitD)
+			switch (Hit.Wall)
 			{
-				case 0:
+				case Walls.MinX:
 					Gizmos.color = Color.green;
 					break;
-				case 1:
+				case Walls.MinY:
 					Gizmos.color = Color.blue;
 					break;
+				case Walls.MaxX:
+					Gizmos.color = Color.cyan;
+					break;
+				case Walls.MaxY:
+					Gizmos.color = Color.red;
+					break;
 
-				default: throw new NotImplementedException(HitD.ToString());
+				default: throw new NotImplementedException(Hit.Wall.ToString());
 			}
 
-			Gizmos.DrawSphere(HitPos, 0.1f);
+			Gizmos.DrawSphere(Hit.Pos, 0.1f);
 		}
 	}
 }
