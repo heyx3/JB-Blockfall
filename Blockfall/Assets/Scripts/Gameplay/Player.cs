@@ -217,7 +217,7 @@ namespace Gameplay
 					tb.MySpr.sprite = Board.GetSpriteForBlock(HoldingBlock);
 
 					//Calculate the block's velocity.
-					tb.MyVelocity = inputs.Move;
+					tb.MyVelocity = new Vector2(inputs.Move.x.Sign(), inputs.Move.y.Sign()).normalized;
 					if (tb.MyVelocity == Vector2.zero)
 					{
 						tb.MyVelocity = new Vector2(Mathf.Sign(MyTr.localScale.x), 0.0f);
@@ -235,11 +235,11 @@ namespace Gameplay
 
 			newVel.x = inputs.Move.x * Consts.Instance.PlayerSpeed;
 
-            if (newVel.y < 0.0f && inputs.Jump)
+            if (!IsOnGround && newVel.y < 0.0f && inputs.Jump)
             {
                 newVel.y += Consts.Instance.SlowFallAccel * Time.deltaTime;
             }
-			if (inputs.Move.y < 0.0f)
+			if (!IsOnGround && inputs.Move.y < 0.0f)
 			{
 				newVel.y += Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime;
 			}
@@ -256,9 +256,6 @@ namespace Gameplay
 				MyVelocity = newVel;
 			}
 
-			//Update collision and see if we're on the ground.
-			//if (MyVelocity.y < 0.0f)
-			//	IsOnGround = false;
 			base.FixedUpdate();
 		}
 
