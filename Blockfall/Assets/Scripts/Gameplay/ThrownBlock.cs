@@ -49,7 +49,7 @@ namespace Gameplay
 			MyVelocity = Vector2.zero;
 			DoActionAfterTime(() => Destroy(gameObject), 0.001f);
 
-			Board.AddBlockAt(tilePos, BlockType);
+			Board[tilePos] = BlockType;
 			
 
 			return;

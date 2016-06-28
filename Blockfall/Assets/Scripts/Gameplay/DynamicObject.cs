@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Raycasting;
 
 
 namespace Gameplay
@@ -13,7 +14,7 @@ namespace Gameplay
 	{
 		private static bool AllowsMovement(Vector2i tilePos, GameBoard.BlockTypes block)
 		{
-			return !GameBoard.BlockQueries.IsSolid(block);
+			return !Board.IsSolid(tilePos);
 		}
 
 		private static List<DynamicObject> objectsInWorld = new List<DynamicObject>();
@@ -76,9 +77,9 @@ namespace Gameplay
 				//Cast out from the corner along the velocity direction.
 				{
 					BoxRayHit hit = new BoxRayHit();
-					Vector2i tileHit = Board.CastRay(new Ray2D(fromCorner, velocityNorm),
-													 AllowsMovement, ref hit, delta + 0.001f);
-					if (tileHit != new Vector2i(-1, -1))
+					Vector2i tileHit = new Vector2i();
+					if (Board.CastRay(new Ray2D(fromCorner, velocityNorm), AllowsMovement,
+									  ref tileHit, ref hit, delta + 0.001f))
 					{
 						didHit = true;
 
@@ -103,10 +104,9 @@ namespace Gameplay
 					for (float y = yMin + yIncrement; y <= yMax; y += yIncrement)
 					{
 						Vector2 rayStart = new Vector2(fromCorner.x, y);
-						Vector2i hitPos = Board.CastRay(new Ray2D(rayStart, new Vector2(velDir, 0.0f)),
-														AllowsMovement, ref hit,
-														delta + 0.001f);
-						if (hitPos != new Vector2i(-1, -1))
+						Vector2i hitPos = new Vector2i();
+						if (Board.CastRay(new Ray2D(rayStart, new Vector2(velDir, 0.0f)), AllowsMovement,
+										  ref hitPos, ref hit, delta + 0.001f))
 						{
 							if (!hitWalls.Contains(hit.Wall) ||
 								hit.Distance < hitWalls.Get(hit.Wall).Distance)
@@ -131,10 +131,9 @@ namespace Gameplay
 					for (float x = xMin + xIncrement; x <= xMax; x += xIncrement)
 					{
 						Vector2 rayStart = new Vector2(x, fromCorner.y);
-						Vector2i hitPos = Board.CastRay(new Ray2D(rayStart, new Vector2(0.0f, velDir)),
-														AllowsMovement, ref hit,
-														delta + 0.001f);
-						if (hitPos != new Vector2i(-1, -1))
+						Vector2i hitPos = new Vector2i();
+						if (Board.CastRay(new Ray2D(rayStart, new Vector2(0.0f, velDir)), AllowsMovement,
+													ref hitPos, ref hit, delta + 0.001f))
 						{
 							if (!hitWalls.Contains(hit.Wall) ||
 								hit.Distance < hitWalls.Get(hit.Wall).Distance)

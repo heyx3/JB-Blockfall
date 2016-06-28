@@ -7,8 +7,9 @@ namespace Tests
 	public class RaycastTester : MonoBehaviour
 	{
 		public Vector2 StartPos, EndPos;
-		
-		BoxRayHit Hit;
+
+		bool WasHit = false;
+		Raycasting.BoxRayHit Hit;
 		public Vector2i HitPosI = new Vector2i(-1, -1);
 
 
@@ -24,10 +25,10 @@ namespace Tests
 			}
 			if (Input.GetMouseButton(2))
 			{
-				HitPosI = GameBoard.Board.Instance.CastRay(new Ray2D(StartPos, (EndPos - StartPos).normalized),
-														   (Vector2i p, GameBoard.BlockTypes bt) =>
-															  (bt == GameBoard.BlockTypes.Empty),
-														   ref Hit, Vector2.Distance(StartPos, EndPos));
+				WasHit = GameBoard.Board.Instance.CastRay(new Ray2D(StartPos, (EndPos - StartPos).normalized),
+														  (Vector2i p, GameBoard.BlockTypes bt) =>
+														      (bt == GameBoard.BlockTypes.Empty),
+														  ref HitPosI, ref Hit, Vector2.Distance(StartPos, EndPos));
 			}
 		}
 		void OnGUI()
@@ -48,21 +49,21 @@ namespace Tests
 			Gizmos.DrawSphere(EndPos, 0.15f);
 			Gizmos.DrawLine(StartPos, EndPos);
 
-			if (HitPosI == new Vector2i(-1, -1))
+			if (!WasHit)
 				return;
 
 			switch (Hit.Wall)
 			{
-				case Walls.MinX:
+				case Raycasting.Walls.MinX:
 					Gizmos.color = Color.green;
 					break;
-				case Walls.MinY:
+				case Raycasting.Walls.MinY:
 					Gizmos.color = Color.blue;
 					break;
-				case Walls.MaxX:
+				case Raycasting.Walls.MaxX:
 					Gizmos.color = Color.cyan;
 					break;
-				case Walls.MaxY:
+				case Raycasting.Walls.MaxY:
 					Gizmos.color = Color.red;
 					break;
 

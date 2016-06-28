@@ -168,7 +168,7 @@ namespace Gameplay
 					IsOnGround = false;
 					for (int x = startX; x <= endX; ++x)
 					{
-						if (GameBoard.BlockQueries.IsSolid(Board[new Vector2i(x, y - 1)]))
+						if (Board.IsSolid(new Vector2i(x, y - 1)))
 						{
 							IsOnGround = true;
 							break;
@@ -195,10 +195,10 @@ namespace Gameplay
 																		  (inputs.Move.x != 0)))
 					{
 						Vector2i tilePos = Board.ToTilePos(indicator.position);
-						if (GameBoard.BlockQueries.CanPickUp(Board[tilePos]))
+						if (Board.CanPickUp(tilePos))
 						{
 							HoldingBlock = Board[tilePos];
-							Board.RemoveBlockAt(tilePos);
+							Board[tilePos] = GameBoard.BlockTypes.Empty;
 							break;
 						}
 					}
@@ -214,7 +214,7 @@ namespace Gameplay
 					ThrownBlock tb = thrownBlock.GetComponent<ThrownBlock>();
 					tb.BlockType = HoldingBlock;
 					tb.Owner = this;
-					tb.MySpr.sprite = Board.GetSpriteForBlock(HoldingBlock);
+					tb.MySpr.sprite = Board.GetSpriteFor(HoldingBlock);
 
 					//Calculate the block's velocity.
 					tb.MyVelocity = new Vector2(inputs.Move.x.Sign(), inputs.Move.y.Sign()).normalized;

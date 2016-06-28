@@ -8,7 +8,7 @@ namespace GameBoard.Generators
 	/// <summary>
 	/// Uses two 1D perlin noise arrays -- 1 for each axis -- to generate clumps of blocks.
 	/// </summary>
-	public class PerlinGenerator : BaseGenerator
+	public class BoardGenerator_Perlin : BoardGenerator_Base
 	{
 		[Serializable]
 		public class PerlinOctave
@@ -27,14 +27,14 @@ namespace GameBoard.Generators
 		public int Width = 45,
 				   Height = 60;
 
-		public bool WrapX;
+		public bool MirrorX;
 
 		public float Seed = 5123.0f;
 
 
 		public void GenerateNoise(out float[] horzLine, out float[] vertLine)
 		{
-			int width = (WrapX ? Width / 2 : Width);
+			int width = (MirrorX ? Width / 2 : Width);
 			horzLine = new float[Width];
 			for (int x = 0; x < width; ++x)
 			{
@@ -46,7 +46,7 @@ namespace GameBoard.Generators
 								   NoiseAlgos2D.SmootherNoise(new Vector2(xPos, Seed));
 				}
 
-				if (WrapX)
+				if (MirrorX)
 				{
 					horzLine[width + x] = horzLine[x];
 				}
@@ -65,37 +65,29 @@ namespace GameBoard.Generators
 			}
 		}
 
-		protected override void DoGeneration()
+		public override void Generate(Board b, Vector2i minCorner, Vector2 maxCorner)
 		{
 			float[] horzLine, vertLine;
 			GenerateNoise(out horzLine, out vertLine);
 
-			BlockTypes[,] blocks = new BlockTypes[Width, Height];
-
-			for (int y = 0; y < Height; ++y)
+			for (Vector2i posI = minCorner; posI.y <= maxCorner.y; ++posI.y)
 			{
-				for (int x = 0; x < Width; ++x)
+				for (posI.x = minCorner.x; posI.x <= maxCorner.x; ++posI.x)
 				{
-					if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1)
-					{
-						blocks[x, y] = BlockTypes.Immobile;
-					}
+					if (posI.x < 0 || posI.y < 0 || posI.x >= Width || posI.y >= Height)
+						b[posI] = BlockTypes.Immobile;
 					else
 					{
-						float value = Mathf.Pow(horzLine[x],
-												HorizontalPower.Evaluate((float)x /
+						float value = Mathf.Pow(horzLine[posI.x],
+												HorizontalPower.Evaluate((float)posI.x /
 																		 (float)(Width - 1))) *
-									  Mathf.Pow(vertLine[y],
-												VerticalPower.Evaluate((float)y /
+									  Mathf.Pow(vertLine[posI.y],
+												VerticalPower.Evaluate((float)posI.y /
 																	   (float)(Height - 1)));
-						blocks[x, y] = (value > Threshold ?
-											BlockTypes.Normal :
-											BlockTypes.Empty);
+						b[posI] = (value > Threshold ? BlockTypes.Normal : BlockTypes.Empty);
 					}
 				}
 			}
-
-			Board.Instance.Reset(blocks);
 		}
 	}
 }
