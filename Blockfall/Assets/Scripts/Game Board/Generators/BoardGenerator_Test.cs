@@ -9,7 +9,7 @@ namespace GameBoard.Generators
 	{
 		public int BlockHeight = 6;
 
-		public override void Generate(Board b, Vector2i minCorner, Vector2 maxCorner)
+		public override void Generate(Board b, Vector2i minCorner, Vector2i maxCorner)
 		{
 			for (Vector2i posI = minCorner; posI.y <= maxCorner.y; ++posI.y)
 				for (posI.x = minCorner.x; posI.x <= maxCorner.x; ++posI.x)

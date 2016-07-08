@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -22,9 +22,14 @@ namespace GameBoard
 
 
 		public int SpriteLayer = 1;
+		
+		[SerializeField]
+		private int WidthToGenerate = 20,
+					HeightToGenerate = 35;
 
 		private Tile[,] tiles = null;
 		private Transform tileContainer;
+
 
 
 		public int Width { get { return tiles.GetLength(0); } }
@@ -80,6 +85,12 @@ namespace GameBoard
 		}
 
 
+		public override bool CastRay(Ray2D ray, Func<Vector2i, BlockTypes, bool> isBlockPassable,
+									 ref Board.RaycastResult hitTileData, float maxDist)
+		{
+			//TODO: Implement.
+		}
+
 		public override BlockTypes this[Vector2i tileIndex]
 		{
 			get
@@ -117,16 +128,38 @@ namespace GameBoard
 
 		public override bool IsInBoard(Vector2i tilePos)
 		{
-			return tilePos.x >= 0 && tilePos.x < Width &&
-				   tilePos.y >= 0 && tilePos.y < Height;
+			return tilePos.IsWithin(Vector2i.Zero,
+									new Vector2i(Width - 1, Height - 1));
 		}
 
-   
+
 		protected override void Awake()
 		{
 			base.Awake();
 
 			tileContainer = new GameObject("Tile Sprites").transform;
+
+			tiles = new Tile[WidthToGenerate, HeightToGenerate];
+			for (int y = 0; y < Height; ++y)
+			{
+				for (int x = 0; x < Width; ++x)
+				{
+					GameObject go = new GameObject(x.ToString() + " " + y);
+					go.transform.position = ToWorldPos(new Vector2i(x, y));
+					go.transform.parent = tileContainer;
+
+					SpriteRenderer spr = go.AddComponent<SpriteRenderer>();
+
+					tiles[x, y] = new Tile(BlockTypes.Empty, spr);
+					this[new Vector2i(x, y)] = BlockTypes.Empty;
+				}
+			}
+
+			Generator.Generate(this, new Vector2i(), new Vector2i(Width - 1, Height - 1));
+
+			Rect areaBnds = ToWorldRect(Vector2i.Zero).Union(ToWorldRect(new Vector2i(Width - 1, Height - 1)));
+			GameCam.transform.position = areaBnds.center;
+			GameCam.orthographicSize = areaBnds.height * 0.5f;
 		}
 	}
 }

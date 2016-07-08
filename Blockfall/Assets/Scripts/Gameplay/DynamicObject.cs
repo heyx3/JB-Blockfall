@@ -54,6 +54,8 @@ namespace Gameplay
 		}
 		protected virtual void FixedUpdate()
 		{
+			//TODO: Only do the raycasting stuff if the player actually hit something at his new position, or if "Sweep" field is enabled.
+
 			//Move and do collision detection.
 			//Collision detection is done by casting several rays forward from the collision box
 			//    along the player's velocity, and finding the closest collision.

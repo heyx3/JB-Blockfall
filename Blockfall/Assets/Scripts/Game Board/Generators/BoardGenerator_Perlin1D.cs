@@ -8,7 +8,7 @@ namespace GameBoard.Generators
 	/// <summary>
 	/// Uses two 1D perlin noise arrays -- 1 for each axis -- to generate clumps of blocks.
 	/// </summary>
-	public class BoardGenerator_Perlin : BoardGenerator_Base
+	public class BoardGenerator_Perlin1D : BoardGenerator_Base
 	{
 		[Serializable]
 		public class PerlinOctave
@@ -24,66 +24,71 @@ namespace GameBoard.Generators
 							  VerticalPower = AnimationCurve.Linear(0.0f, 1.0f, 1.0f, 1.0f);
 		public float Threshold = 0.3f;
 
-		public int Width = 45,
-				   Height = 60;
-
 		public bool MirrorX;
 
 		public float Seed = 5123.0f;
 
 
-		public void GenerateNoise(out float[] horzLine, out float[] vertLine)
+		public void GenerateNoise(out float[] horzLine, out float[] vertLine,
+								  Vector2i startInclusive, Vector2i endInclusive)
 		{
-			int width = (MirrorX ? Width / 2 : Width);
-			horzLine = new float[Width];
+			Vector2i range = endInclusive - startInclusive + new Vector2i(1, 1);
+
+			horzLine = new float[range.x];
+			vertLine = new float[range.y];
+
+
+			int width = (MirrorX ? range.x / 2 : range.x);
 			for (int x = 0; x < width; ++x)
 			{
 				horzLine[x] = 0.0f;
 				for (int i = 0; i < HorizontalNoise.Count; ++i)
 				{
-					float xPos = HorizontalNoise[i].Scale * (float)x;
+					float xPos = HorizontalNoise[i].Scale * (float)(x + startInclusive.x);
 					horzLine[x] += HorizontalNoise[i].Weight *
 								   NoiseAlgos2D.SmootherNoise(new Vector2(xPos, Seed));
 				}
-
-				if (MirrorX)
-				{
+			}
+			if (MirrorX)
+			{
+				for (int x = 0; x < width; ++x)
 					horzLine[width + x] = horzLine[x];
-				}
 			}
 
-			vertLine = new float[Height];
-			for (int y = 0; y < Height; ++y)
+
+			vertLine = new float[range.y];
+			for (int y = 0; y < range.y; ++y)
 			{
 				vertLine[y] = 0.0f;
 				for (int i = 0; i < VerticalNoise.Count; ++i)
 				{
-					float yPos = VerticalNoise[i].Scale * (float)y;
+					float yPos = VerticalNoise[i].Scale * (float)(y + startInclusive.y);
 					vertLine[y] += VerticalNoise[i].Weight *
 								   NoiseAlgos2D.SmootherNoise(new Vector2(Seed, yPos));
 				}
 			}
 		}
 
-		public override void Generate(Board b, Vector2i minCorner, Vector2 maxCorner)
+		public override void Generate(Board b, Vector2i minCorner, Vector2i maxCorner)
 		{
 			float[] horzLine, vertLine;
-			GenerateNoise(out horzLine, out vertLine);
+			GenerateNoise(out horzLine, out vertLine, minCorner, maxCorner);
+			Vector2i range = maxCorner - minCorner + new Vector2i(1, 1);
 
 			for (Vector2i posI = minCorner; posI.y <= maxCorner.y; ++posI.y)
 			{
 				for (posI.x = minCorner.x; posI.x <= maxCorner.x; ++posI.x)
 				{
-					if (posI.x < 0 || posI.y < 0 || posI.x >= Width || posI.y >= Height)
+					if (posI.x < 0 || posI.y < 0 || posI.x >= range.x || posI.y >= range.y)
 						b[posI] = BlockTypes.Immobile;
 					else
 					{
 						float value = Mathf.Pow(horzLine[posI.x],
 												HorizontalPower.Evaluate((float)posI.x /
-																		 (float)(Width - 1))) *
+																		 (float)(range.x - 1))) *
 									  Mathf.Pow(vertLine[posI.y],
 												VerticalPower.Evaluate((float)posI.y /
-																	   (float)(Height - 1)));
+																	   (float)(range.y - 1)));
 						b[posI] = (value > Threshold ? BlockTypes.Normal : BlockTypes.Empty);
 					}
 				}

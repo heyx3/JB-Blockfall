@@ -23,8 +23,6 @@ namespace Gameplay
 
 		public override void OnHitDynamicObject(DynamicObject other)
 		{
-			Vector2i tilePos = Board.ToTilePos(MyTr.position);
-
 			Player p = other as Player;
 			if (p != null && !p.IsInvincible)
 			{
@@ -50,40 +48,6 @@ namespace Gameplay
 			DoActionAfterTime(() => Destroy(gameObject), 0.001f);
 
 			Board[tilePos] = BlockType;
-			
-
-			return;
-
-			//Push people away from this block.
-			Rect blockBnds = Board.ToWorldRect(tilePos);
-			foreach (DynamicObject obj in ObjectsInWorld)
-			{
-				if (obj != this)
-				{
-					Vector2 center = obj.MyTr.position,
-							minCorner = center - (obj.CollisionBoxSize * 0.5f);
-
-					Rect theirBnds = new Rect(minCorner, obj.CollisionBoxSize);
-
-					if (blockBnds.Overlaps(theirBnds))
-					{
-						Vector2 push = theirBnds.center - blockBnds.center;
-						push.x /= theirBnds.width;
-						push.y /= theirBnds.height;
-
-						Vector2 pushScaleAbs = new Vector2(Mathf.Abs(push.x / theirBnds.width),
-														   Mathf.Abs(push.y / theirBnds.height));
-
-						if (pushScaleAbs.x > pushScaleAbs.y)
-						{
-							if (push.x > 0.0f)
-							{
-
-							}
-						}
-					}
-				}
-			}
 		}
 	}
 }

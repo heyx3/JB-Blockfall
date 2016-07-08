@@ -10,12 +10,12 @@ using BoxRayHit = Raycasting.BoxRayHit;
 namespace GameBoard
 {
 	[DisallowMultipleComponent]
-	public abstract class BoardGenerator_Base
+	public abstract class BoardGenerator_Base : MonoBehaviour
 	{
 		/// <summary>
 		/// Generates tiles into the given board for the given range, inclusive.
 		/// </summary>
-		public abstract void Generate(Board b, Vector2i minCorner, Vector2 maxCorner);
+		public abstract void Generate(Board b, Vector2i minCorner, Vector2i maxCorner);
 	}
 
 
@@ -119,8 +119,8 @@ namespace GameBoard
 		}
 
 
-		public List<Vector2i> GetSpawnablePositions(Vector2i toSearchMin, Vector2i toSearchMax, Vector2i objectSize,
-													bool mustSpawnOnGround,
+		public List<Vector2i> GetSpawnablePositions(Vector2i toSearchMin, Vector2i toSearchMax,
+													Vector2i objectSize, bool mustSpawnOnGround,
 													Func<Vector2i, BlockTypes, bool> isSpawnableIn)
 		{
 			UnityEngine.Assertions.Assert.IsTrue(toSearchMax.x > toSearchMin.x, "Xs are bad");
@@ -199,141 +199,15 @@ namespace GameBoard
             return poses;
 		}
 
-		/// <summary>
-		/// Returns whether there was a hit.
-		/// </summary>
-		public bool CastRay(Ray2D ray, Func<Vector2i, BlockTypes, bool> isBlockPassable,
-							ref Vector2i outHitTile, ref Raycasting.BoxRayHit outHit, float maxDist)
-		
-		{
-			float epsilon = 0.00001f;
-			Vector2 rayInvDir = new Vector2(1.0f / ray.direction.x, 1.0f / ray.direction.y);
 
-			Vector2i posI = ToTilePos(ray.origin);
+		public struct RaycastResult { public Vector2i BlockPos; public GridCasting2D.Hit BlockHit; }
 
-			//Edge-case: the ray started in a solid block.
-			if (IsInBoard(posI) && !isBlockPassable(posI, this[posI]))
-			{
-				//If the ray is facing towards the center of the block,
-				//    cast backwards to find where it intersects the wall.
-				//Otherwise, cast forward.
-				float _dir = 1.0f;
-				if (Vector2.Dot(ray.direction, ToWorldPos(posI) - ray.origin) > 0.0f)
-					_dir = -1.0f;
+		public abstract bool CastRay(Ray2D ray, Func<Vector2i, BlockTypes, bool> isBlockPassable,
+									 ref RaycastResult hitTileData, float maxDist);
 
-				BoxRayHit dummyHit = new BoxRayHit();
-				uint _nHits = Raycasting.BoxRayHit.Cast(new Ray2D(ray.origin, ray.direction * _dir),
-														rayInvDir * _dir, ToWorldRect(posI),
-														ref outHit, ref dummyHit);
-				Assert.IsTrue(_nHits == 1, "Expected 1 hit instead of " + _nHits);
 
-				outHit.Distance *= _dir;
-				outHitTile = posI;
-				return true;
-			}
-
-			BoxRayHit startHit = new BoxRayHit(),
-					  endHit = new BoxRayHit();
-			uint nHits;
-
-			startHit.Pos = ray.origin;
-			startHit.Distance = 0.0f;
-
-			posI = ToTilePos(startHit.Pos);
-
-			//Cast through each block until a solid one is hit or we pass through the grid.
-			Rect tileBounds = ToWorldRect(posI);
-			nHits = Raycasting.BoxRayHit.Cast(ray, rayInvDir, tileBounds, ref startHit, ref endHit);
-			
-			if (nHits == 1)
-			{
-				//Right now "startHit" contains the single hit, where the ray exited the tile.
-				endHit = startHit;
-				startHit = new BoxRayHit(Raycasting.Walls.MinX, 0.0f, ray.origin);
-			}
-			else
-			{
-				Assert.IsTrue(nHits == 2, "nHits is " + nHits.ToString());
-			}
-
-			while (startHit.Distance < maxDist)
-			{
-				if (IsInBoard(posI) && isBlockPassable(posI, this[posI]))
-				{
-					//Edge-case: the ray passes exactly through a corner.
-					//In this case, the next block to cast through is *diagonal* to this one.
-					bool edgeCase = false;
-					if (endHit.Pos.x.IsNearEqual(tileBounds.xMin, epsilon))
-					{
-						if (endHit.Pos.y.IsNearEqual(tileBounds.yMin, epsilon))
-						{
-							posI = posI.LessX.LessY;
-							edgeCase = true;
-						}
-						else if (endHit.Pos.y.IsNearEqual(tileBounds.yMax, epsilon))
-						{
-							posI = posI.LessX.MoreY;
-							edgeCase = true;
-						}
-					}
-					else if (endHit.Pos.x.IsNearEqual(tileBounds.xMax, epsilon))
-					{
-						if (endHit.Pos.y.IsNearEqual(tileBounds.yMin, epsilon))
-						{
-							posI = posI.MoreX.LessY;
-							edgeCase = true;
-						}
-						else if (endHit.Pos.y.IsNearEqual(tileBounds.yMax, epsilon))
-						{
-							posI = posI.MoreX.MoreY;
-							edgeCase = true;
-						}
-					}
-					
-					//Otherwise, move to an adjacent orthogonal block based on the edge that was hit.
-					if (!edgeCase)
-					{
-						if (endHit.IsXFace)
-						{
-							if (ray.direction.x > 0.0f)
-								posI = posI.MoreX;
-							else
-							{
-								Assert.IsTrue(ray.direction.x < 0.0f, "Ray X dir is 0??");
-								posI = posI.LessX;
-							}
-						}
-						else
-						{
-							if (ray.direction.y > 0.0f)
-								posI = posI.MoreY;
-							else
-							{
-								Assert.IsTrue(ray.direction.y < 0.0f, "Ray Y dir is 0??");
-								posI = posI.LessY;
-							}
-						}
-					}
-					tileBounds = ToWorldRect(posI);
-					nHits = Raycasting.BoxRayHit.Cast(ray, rayInvDir, tileBounds, ref startHit, ref endHit);
-					Assert.IsTrue(nHits > 0, "nHits is " + nHits);
-				}
-				else
-				{
-					outHit = startHit;
-					outHitTile = posI;
-					return true;
-				}
-			}
-			
-			//Nothing was hit.
-			return false;
-		}
-		
-		
 		public abstract BlockTypes this[Vector2i tilePos] { get; set; }
 
-		public abstract bool IsInBoard(Vector2i tilePos);
 
 		/// <summary>
 		/// Allows this board to constrain the given position of an object.

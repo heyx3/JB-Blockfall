@@ -3,6 +3,9 @@
 
 public struct Vector2i
 {
+	public static readonly Vector2i Zero = new Vector2i(0, 0);
+
+
 	public int x, y;
 
 
@@ -41,6 +44,13 @@ public struct Vector2i
 	public Vector2i LessY { get { return new Vector2i(x, y - 1); } }
 	public Vector2i MoreX { get { return new Vector2i(x + 1, y); } }
 	public Vector2i MoreY { get { return new Vector2i(x, y + 1); } }
+
+
+	public bool IsWithin(Vector2i minInclusive, Vector2i maxInclusive)
+	{
+		return x >= minInclusive.x && y >= minInclusive.y &&
+			   x <= maxInclusive.x && y <= maxInclusive.y;
+	}
 
 	public float Distance(Vector2i other)
 	{
