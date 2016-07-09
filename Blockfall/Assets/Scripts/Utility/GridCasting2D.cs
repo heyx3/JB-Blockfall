@@ -22,11 +22,14 @@ namespace GridCasting2D
 		MaxY = 8,
 	}
 
-	public static class WallQueries
+	public static class Queries
 	{
 		public static bool Contains(this Walls w, Walls w2) { return (w & w2) == w2; }
 		public static Walls Add(this Walls w, Walls w2) { return (w | w2); }
 		public static Walls Remove(this Walls w, Walls w2) { return w & ~w2; }
+		
+		public static Walls RemoveXs(this Walls w) { return w.Remove(Walls.MinX | Walls.MaxX); }
+		public static Walls RemoveYs(this Walls w) { return w.Remove(Walls.MinY | Walls.MaxY); }
 
 		public static IEnumerable<Walls> GetIndividual(this Walls w)
 		{
@@ -45,13 +48,10 @@ namespace GridCasting2D
 
 		public static bool IsFace(this Walls w) { return w == Walls.MinX || w == Walls.MinY || w == Walls.MaxX || w == Walls.MaxY; }
 		public static bool IsCorner(this Walls w) { return w.HasXFace() && w.HasYFace(); }
-	}
 
 
-	public struct Hit
-	{
 		/// <summary>
-		/// Casts a ray through the given AABB.
+		/// Casts a ray through this rectangle.
 		/// Returns the number of hits:
 		/// 0 means the ray didn't hit at all.
 		/// 1 means the ray started inside the box, and "outHit1" contains the point where it exited.
@@ -59,14 +59,13 @@ namespace GridCasting2D
 		///		"outHit1" contains the point where it entered
 		///		and "outHit2" contains the point where it exited.
 		/// </summary>
-		public static uint Cast(Ray2D ray, Rect box,
-								ref Hit outHit1, ref Hit outHit2, float epsilon)
+		public static uint Cast(this Rect box, Ray2D ray, ref Hit outHit1, ref Hit outHit2, float epsilon)
 		{
-			return Cast(ray, box, new Vector2(1.0f / ray.direction.x, 1.0f / ray.direction.y),
-						ref outHit1, ref outHit2, epsilon);
+			return box.Cast(ray, new Vector2(1.0f / ray.direction.x, 1.0f / ray.direction.y),
+							ref outHit1, ref outHit2, epsilon);
 		}
 		/// <summary>
-		/// Casts a ray through the given AABB.
+		/// Casts a ray through this rectangle.
 		/// Returns the number of hits:
 		/// 0 means the ray didn't hit at all.
 		/// 1 means the ray started inside the box, and "outHit1" contains the point where it exited.
@@ -79,7 +78,7 @@ namespace GridCasting2D
 		/// This can be expensive to constantly recompute,
 		/// so this method signature allows it to be computed once then passed in.
 		/// </param>
-		public static uint Cast(Ray2D ray, Rect box, Vector2 invRayDir,
+		public static uint Cast(this Rect box, Ray2D ray, Vector2 invRayDir,
 								ref Hit outHit1, ref Hit outHit2, float epsilon)
 		{
 			Vector2 min = box.min,
@@ -139,25 +138,27 @@ namespace GridCasting2D
 					temp.Pos = new Vector2(x, max.y);
 					hits.TryInsert(temp);
 				}
-			}
+			} 
 			//If any two hits are identical, then a corner was actually hit.
 			hits.FoldDuplicates();
 
+
 			//Now find the closest intersections.
+
 			if (hits.Count < 1)
 				return 0;
+
 			outHit1 = hits.H1;
 			if (hits.Count < 2)
 				return 1;
+
 			outHit2 = hits.H2;
 			return 2;
 		}
-
-
 		#region Helper struct for Cast()
 		private struct OrderedHitList
 		{
-			public Hit H1, H2, H3;
+			public Hit H1, H2, H3, H4;
 			public int Count { get; private set; }
 
 			public Hit Get(int index)
@@ -168,8 +169,9 @@ namespace GridCasting2D
 				{
 					case 0: return H1;
 					case 1: return H2;
-					
-					case 2:
+					case 2: return H3;
+
+					case 3:
 					default:
 						return H3;
 				}
@@ -181,10 +183,10 @@ namespace GridCasting2D
 				Count -= 1;
 				switch (index)
 				{
-					case 0: H1 = H2; H2 = H3; break;
-					case 1: H2 = H3; break;
-
-					case 2:
+					case 0: H1 = H2; H2 = H3; H3 = H4; break;
+					case 1: H2 = H3; H3 = H4; break;
+					case 2: H3 = H4; break;
+					case 3:
 					default:
 						break;
 				}
@@ -197,33 +199,39 @@ namespace GridCasting2D
 				{
 					case 0: H1 = newVal; break;
 					case 1: H2 = newVal; break;
-					
-					case 2:
+					case 2: H3 = newVal; break;
+					case 3:
 					default:
-						H3 = newVal; break;
+						H4 = newVal; break;
 				}
 			}
 			public void TryInsert(Hit h)
 			{
-				Count += 1;
 				if (Count < 1 || h.Distance < H1.Distance)
 				{
+					H4 = H3;
 					H3 = H2;
 					H2 = H1;
 					H1 = h;
+					Count += 1;
 				}
 				else if (Count < 2 || h.Distance < H2.Distance)
 				{
+					H4 = H3;
 					H3 = H2;
 					H2 = h;
+					Count += 1;
 				}
 				else if (Count < 3 || h.Distance < H3.Distance)
 				{
+					H4 = H3;
 					H3 = h;
+					Count += 1;
 				}
-				else
+				else if (Count < 4 || h.Distance < H4.Distance)
 				{
-					Count -= 1;
+					H4 = h;
+					Count += 1;
 				}
 			}
 			public void FoldDuplicates()
@@ -243,8 +251,11 @@ namespace GridCasting2D
 			}
 		}
 		#endregion
+	}
 
 
+	public struct Hit
+	{
 		public Walls HitSides;
 		public float Distance;
 		public Vector2 Pos;
@@ -255,12 +266,16 @@ namespace GridCasting2D
 
 		public override string ToString()
 		{
-			string str = "Walls: [";
-			foreach (Walls w in HitSides.GetIndividual())
-				str += w.ToString() + ", ";
-			str = str.Substring(0, str.Length - 2) + "]";
+			string str = "";
+			if ((int)HitSides != 0)
+			{
+				str = "Walls: [";
+				foreach (Walls w in HitSides.GetIndividual())
+					str += w.ToString() + ", ";
+				str = str.Substring(0, str.Length - 2) + "] ";
+			}
 
-			str += " Dist: " + Distance;
+			str += "Dist: " + Distance;
 			str += " Pos: " + Pos;
 
 			return str;
@@ -268,16 +283,6 @@ namespace GridCasting2D
 	}
 
 	
-	public struct MyNullable<T>
-	{
-		public bool HasValue { get { return hasValue; } }
-		public T Value { get { Assert.IsTrue(HasValue); return val; } }
-
-		private bool hasValue;
-		private T val;
-
-		public MyNullable(T value) { hasValue = false; val = value; }
-	}
 	/// <summary>
 	/// Handles raycasting against a uniform axis-aliged grid of squares.
 	/// </summary>
@@ -287,9 +292,6 @@ namespace GridCasting2D
 	public abstract class GridCaster<ExtraData>
 		where ExtraData : struct
 	{
-		public struct Region { public Vector2i Min, Max; public Region(Vector2i min, Vector2i max) { Min = min; Max = max; } }
-
-		
 		/// <summary>
 		/// Casts the given ray through this grid.
 		/// Returns whether a block was hit.
@@ -332,7 +334,7 @@ namespace GridCasting2D
 			//Edge-case: the ray started in a solid cell.
 			if (!limitRange.HasValue || posI.IsWithin(limitRange.Value.Min, limitRange.Value.Max))
 			{
-				if (CastInitialCell(posI, ray, ref outDataIfHit))
+				if (CastInitialCell(posI, ray, rayInvDir, ref outDataIfHit, epsilon))
 					return true;
 			}
 
@@ -352,7 +354,7 @@ namespace GridCasting2D
 				Rect rangeBnds = Rect.MinMaxRect(minBnds.xMin, minBnds.yMin,
 												 maxBnds.xMax, maxBnds.yMax);
 
-				nHits = Hit.Cast(ray, rangeBnds, ref startH, ref endH, epsilon);
+				nHits = rangeBnds.Cast(ray, rayInvDir, ref startH, ref endH, epsilon);
 				if (nHits == 0)
 				{
 					return false;
@@ -374,7 +376,7 @@ namespace GridCasting2D
 
 			//Raycast the first cell.
 			Rect cellBnds = ToWorldBounds(posI);
-			nHits = Hit.Cast(ray, cellBnds, rayInvDir, ref startH, ref endH, epsilon);
+			nHits = cellBnds.Cast(ray, rayInvDir, ref startH, ref endH, epsilon);
 			if (nHits == 1)
 			{
 				endH = startH;
@@ -401,8 +403,8 @@ namespace GridCasting2D
 						posI = posI.MoreY;
 
 					cellBnds = ToWorldBounds(posI);
-					nHits = Hit.Cast(ray, cellBnds, rayInvDir, ref startH, ref endH, epsilon);
-					Assert.AreEqual(2U, nHits, "nHits");
+					nHits = cellBnds.Cast(ray, rayInvDir, ref startH, ref endH, epsilon);
+					Assert.AreEqual(2U, nHits, posI.ToString() + " " + startH + " " + endH);
 				}
 			}
 
@@ -429,7 +431,28 @@ namespace GridCasting2D
 		/// <summary>
 		/// A simpler version of "CastCell()" that is called on the cell containing the ray's origin.
 		/// </summary>
-		protected abstract bool CastInitialCell(Vector2i gridCellIndex, Ray2D ray,
-												ref ExtraData outDataIfHit);
+		protected abstract bool CastInitialCell(Vector2i gridCellIndex, Ray2D ray, Vector2 invRayDir,
+												ref ExtraData outDataIfHit, float epsilon);
+	}
+
+
+	/// <summary>
+	/// Needed because of a Unity compiler bug with System.Nullable.
+	/// </summary>
+	public struct MyNullable<T>
+	{
+		public bool HasValue { get { return hasValue; } }
+		public T Value { get { Assert.IsTrue(HasValue); return val; } }
+
+		private bool hasValue;
+		private T val;
+
+		public MyNullable(T value) { hasValue = true; val = value; }
+	}
+	
+	public struct Region
+	{
+		public Vector2i Min, Max;
+		public Region(Vector2i min, Vector2i max) { Min = min; Max = max; }
 	}
 }

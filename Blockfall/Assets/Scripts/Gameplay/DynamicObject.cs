@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using Raycasting;
+using GridCasting2D;
 
 
 namespace Gameplay
@@ -69,7 +69,7 @@ namespace Gameplay
 				Vector2 actualMovement = velocityNorm * delta;
 
 				bool didHit = false;
-				WallsMap<BoxRayHit> hitWalls = new WallsMap<BoxRayHit>();
+				RaycastHelper closestHits = new RaycastHelper();
 
 				//Get the x and y face to cast from given the velocity.
 				Vector2 fromCorner = collRect.center +
@@ -78,19 +78,18 @@ namespace Gameplay
 
 				//Cast out from the corner along the velocity direction.
 				{
-					BoxRayHit hit = new BoxRayHit();
-					Vector2i tileHit = new Vector2i();
+					GameBoard.Board.RaycastResult result = new GameBoard.Board.RaycastResult();
 					if (Board.CastRay(new Ray2D(fromCorner, velocityNorm), AllowsMovement,
-									  ref tileHit, ref hit, delta + 0.001f))
+									  ref result, delta + 0.001f))
 					{
 						didHit = true;
 
-						if (hit.IsXFace)
-							actualMovement.x = hit.Pos.x - fromCorner.x - (MyVelocity.x.Sign() * 0.0001f);
+						if (result.Hit.HitSides.HasXFace())
+							actualMovement.x = result.Hit.Pos.x - fromCorner.x - (MyVelocity.x.Sign() * 0.0001f);
 						else
-							actualMovement.y = hit.Pos.y - fromCorner.y - (MyVelocity.y.Sign() * 0.0001f);
+							actualMovement.y = result.Hit.Pos.y - fromCorner.y - (MyVelocity.y.Sign() * 0.0001f);
 
-						hitWalls.Set(hit.Wall, hit);
+						closestHits.Add(result.Hit);
 					}
 				}
 
@@ -102,20 +101,17 @@ namespace Gameplay
 						  yMax = collRect.yMax;
 
 					float yIncrement = 1.0f / NCollisionRaysPerUnit;
-					BoxRayHit hit = new BoxRayHit();
+					GameBoard.Board.RaycastResult result = new GameBoard.Board.RaycastResult();
 					for (float y = yMin + yIncrement; y <= yMax; y += yIncrement)
 					{
 						Vector2 rayStart = new Vector2(fromCorner.x, y);
-						Vector2i hitPos = new Vector2i();
 						if (Board.CastRay(new Ray2D(rayStart, new Vector2(velDir, 0.0f)), AllowsMovement,
-										  ref hitPos, ref hit, delta + 0.001f))
+										  ref result, delta + 0.001f))
 						{
-							if (!hitWalls.Contains(hit.Wall) ||
-								hit.Distance < hitWalls.Get(hit.Wall).Distance)
+							if (closestHits.Add(result.Hit))
 							{
 								didHit = true;
-								actualMovement.x = hit.Pos.x - rayStart.x - (velDir * 0.0001f);
-								hitWalls.Set(hit.Wall, hit);
+								actualMovement.x = result.Hit.Pos.x - rayStart.x - (velDir * 0.0001f);
 							}
 						}
 					}
@@ -129,20 +125,17 @@ namespace Gameplay
 						  xMax = collRect.xMax;
 
 					float xIncrement = 1.0f / NCollisionRaysPerUnit;
-					BoxRayHit hit = new BoxRayHit();
+					GameBoard.Board.RaycastResult result = new GameBoard.Board.RaycastResult();
 					for (float x = xMin + xIncrement; x <= xMax; x += xIncrement)
 					{
 						Vector2 rayStart = new Vector2(x, fromCorner.y);
-						Vector2i hitPos = new Vector2i();
 						if (Board.CastRay(new Ray2D(rayStart, new Vector2(0.0f, velDir)), AllowsMovement,
-													ref hitPos, ref hit, delta + 0.001f))
+													ref result, delta + 0.001f))
 						{
-							if (!hitWalls.Contains(hit.Wall) ||
-								hit.Distance < hitWalls.Get(hit.Wall).Distance)
+							if (closestHits.Add(result.Hit))
 							{
 								didHit = true;
-								actualMovement.y = hit.Pos.y - rayStart.y - (velDir * 0.0001f);
-								hitWalls.Set(hit.Wall, hit);
+								actualMovement.y = result.Hit.Pos.y - rayStart.y - (velDir * 0.0001f);
 							}
 						}
 					}
@@ -154,26 +147,26 @@ namespace Gameplay
 				//If there was a collision with a surface, stop the velocity in that direction.
 				if (didHit)
 				{
-					if (hitWalls.Contains(Walls.MinX))
+					if (closestHits.MinX.HasValue)
 					{
 						MyVelocity = new Vector2(0.0f, MyVelocity.y);
-						OnHitRightSide(Board.ToTilePos(hitWalls.Get(Walls.MinX).Pos));
+						OnHitRightSide(Board.ToTilePos(closestHits.MinX.Value.Pos));
 					}
-					else if (hitWalls.Contains(Walls.MaxX))
+					else if (closestHits.MaxX.HasValue)
 					{
 						MyVelocity = new Vector2(0.0f, MyVelocity.y);
-						OnHitLeftSide(Board.ToTilePos(hitWalls.Get(Walls.MaxX).Pos));
+						OnHitLeftSide(Board.ToTilePos(closestHits.MaxX.Value.Pos));
 					}
 
-					if (hitWalls.Contains(Walls.MinY))
+					if (closestHits.MinY.HasValue)
 					{
 						MyVelocity = new Vector2(MyVelocity.x, 0.0f);
-						OnHitCeiling(Board.ToTilePos(hitWalls.Get(Walls.MinY).Pos));
+						OnHitCeiling(Board.ToTilePos(closestHits.MinY.Value.Pos));
 					}
-					else if (hitWalls.Contains(Walls.MaxY))
+					else if (closestHits.MaxY.HasValue)
 					{
 						MyVelocity = new Vector2(MyVelocity.x, 0.0f);
-						OnHitFloor(Board.ToTilePos(hitWalls.Get(Walls.MaxY).Pos));
+						OnHitFloor(Board.ToTilePos(closestHits.MaxY.Value.Pos));
 					}
 				}
 			}
@@ -185,6 +178,56 @@ namespace Gameplay
 				if (this != objectsInWorld[i] && collBnds.Overlaps(objectsInWorld[i].MyCollRect))
 					OnHitDynamicObject(objectsInWorld[i]);
 		}
+		
+		#region RaycastHelper class
+		private struct RaycastHelper
+		{
+			public Hit? MinX, MinY, MaxX, MaxY;
+			
+			public bool Add(Hit h)
+			{
+				bool added = false;
+				if (h.HitSides.Contains(Walls.MinX) &&
+					(!MinX.HasValue || MinX.Value.Distance > h.Distance))
+				{
+					MinX = h;
+					added = true;
+				}
+				else if (h.HitSides.Contains(Walls.MaxX) &&
+						 (!MaxX.HasValue || MaxX.Value.Distance > h.Distance))
+				{
+					MaxX = h;
+					added = true;
+				}
+				
+				if (h.HitSides.Contains(Walls.MinY) &&
+					(!MinY.HasValue || MinY.Value.Distance > h.Distance))
+				{
+					MinY = h;
+					added = true;
+				}
+				else if (h.HitSides.Contains(Walls.MaxY) &&
+						 (!MaxY.HasValue || MaxY.Value.Distance > h.Distance))
+				{
+					MaxY = h;
+					added = true;
+				}
+
+				return added;
+			}
+			public Hit? Get(Walls w)
+			{
+				switch (w)
+				{
+					case Walls.MinX: return MinX;
+					case Walls.MinY: return MinY;
+					case Walls.MaxX: return MaxX;
+					case Walls.MaxY: return MaxY;
+					default: throw new ArgumentException(w.ToString());
+				}
+			}
+		}
+		#endregion
 
 		protected virtual void OnDrawGizmos()
 		{
@@ -230,6 +273,11 @@ namespace Gameplay
 		{
 			yield return new WaitForSeconds(time);
 			toDo();
+		}
+
+
+		private struct WallsMap<T>
+		{
 		}
 	}
 }

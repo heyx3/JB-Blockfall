@@ -8,9 +8,7 @@ namespace Tests
 	{
 		public Vector2 StartPos, EndPos;
 
-		bool WasHit = false;
-		Raycasting.BoxRayHit Hit;
-		public Vector2i HitPosI = new Vector2i(-1, -1);
+		GameBoard.Board.RaycastResult? Hit = null;
 
 
 		void Update()
@@ -25,10 +23,18 @@ namespace Tests
 			}
 			if (Input.GetMouseButton(2))
 			{
-				WasHit = GameBoard.Board.Instance.CastRay(new Ray2D(StartPos, (EndPos - StartPos).normalized),
-														  (Vector2i p, GameBoard.BlockTypes bt) =>
-														      (bt == GameBoard.BlockTypes.Empty),
-														  ref HitPosI, ref Hit, Vector2.Distance(StartPos, EndPos));
+				GameBoard.Board.RaycastResult _Hit = new GameBoard.Board.RaycastResult();
+				if (GameBoard.Board.Instance.CastRay(new Ray2D(StartPos, (EndPos - StartPos).normalized),
+													 (Vector2i p, GameBoard.BlockTypes bt) =>
+													     (bt == GameBoard.BlockTypes.Empty),
+													 ref _Hit, Vector2.Distance(StartPos, EndPos)))
+				{
+					Hit = _Hit;
+				}
+				else
+				{
+					Hit = null;
+				}
 			}
 		}
 		void OnGUI()
@@ -43,34 +49,36 @@ namespace Tests
 			if (!Application.isPlaying)
 				return;
 			
-			Gizmos.color = Color.white;
-
-			Gizmos.DrawSphere(StartPos, 0.15f);
+			Gizmos.color = Color.black;
 			Gizmos.DrawSphere(EndPos, 0.15f);
+			Gizmos.color = Color.white;
+			Gizmos.DrawSphere(StartPos, 0.15f);
 			Gizmos.DrawLine(StartPos, EndPos);
 
-			if (!WasHit)
+			if (!Hit.HasValue)
 				return;
 
-			switch (Hit.Wall)
+			switch (Hit.Value.Hit.HitSides)
 			{
-				case Raycasting.Walls.MinX:
+				case GridCasting2D.Walls.MinX:
 					Gizmos.color = Color.green;
 					break;
-				case Raycasting.Walls.MinY:
+				case GridCasting2D.Walls.MinY:
 					Gizmos.color = Color.blue;
 					break;
-				case Raycasting.Walls.MaxX:
+				case GridCasting2D.Walls.MaxX:
 					Gizmos.color = Color.cyan;
 					break;
-				case Raycasting.Walls.MaxY:
+				case GridCasting2D.Walls.MaxY:
 					Gizmos.color = Color.red;
 					break;
-
-				default: throw new NotImplementedException(Hit.Wall.ToString());
+				
+				default:
+					Gizmos.color = Color.white;
+					break;
 			}
 
-			Gizmos.DrawSphere(Hit.Pos, 0.1f);
+			Gizmos.DrawSphere(Hit.Value.Hit.Pos, 0.1f);
 		}
 	}
 }

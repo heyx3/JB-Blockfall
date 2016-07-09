@@ -200,7 +200,7 @@ namespace GameBoard
 		}
 
 
-		public struct RaycastResult { public Vector2i BlockPos; public GridCasting2D.Hit BlockHit; }
+		public struct RaycastResult { public Vector2i Pos; public GridCasting2D.Hit Hit; }
 
 		public abstract bool CastRay(Ray2D ray, Func<Vector2i, BlockTypes, bool> isBlockPassable,
 									 ref RaycastResult hitTileData, float maxDist);
