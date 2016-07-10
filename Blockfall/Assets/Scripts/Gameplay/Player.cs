@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Gameplay
 {
     [RequireComponent(typeof(BlinkRenderer))]
-	public class Player : DynamicObject
+	public class Player : ControllableObject
 	{
 		public int InputIndex = InputManager.FirstKeyboardInput;
 
@@ -36,8 +36,6 @@ namespace Gameplay
         public bool IsInvincible { get { return TimeTillVulnerable > 0.0f; } }
 
         public BlinkRenderer Blinker { get; private set; }
-
-        public bool IsOnGround { get; private set; }
 
 		public GameBoard.BlockTypes HoldingBlock { get; private set; }
 		
@@ -110,7 +108,6 @@ namespace Gameplay
             TimeTillVulnerable = SpawnInvincibleTime;
 
 			HoldingBlock = GameBoard.BlockTypes.Empty;
-			IsOnGround = false;
 			JumpsLeft = 0;
 
 			BlockHoldIndicator = TryGetChild(BlockHoldChildName);
@@ -128,8 +125,10 @@ namespace Gameplay
             TimeTillVulnerable = SpawnInvincibleTime;
             Blinker.enabled = true;
         }
-		void Update()
+		protected override void Update()
 		{
+			base.Update();
+
             //Update invincibility.
             if (TimeTillVulnerable > 0.0f)
             {
@@ -138,51 +137,16 @@ namespace Gameplay
                 if (TimeTillVulnerable <= 0.0f)
                     Blinker.Stop();
             }
-
             
 			InputManager.Values inputs = InputManager.Instance.Inputs[InputIndex],
 							    inputsLastFrame = InputManager.Instance.InputsLastFrame[InputIndex];
-
-			//Update mirroring.
-			if (inputs.Move.x < 0.0f)
-			{
-				MyTr.localScale = new Vector3(-Mathf.Abs(MyTr.localScale.x),
-											  MyTr.localScale.y, MyTr.localScale.z);
-			}
-			else if (inputs.Move.x > 0.0f)
-			{
-				MyTr.localScale = new Vector3(Mathf.Abs(MyTr.localScale.x),
-											  MyTr.localScale.y, MyTr.localScale.z);
-			}
-
-			//Update ground checking.
-			if (IsOnGround)
-			{
-				Rect collBnds = MyCollRect;
-
-				int y = Board.ToTilePosY(collBnds.yMin);
-				if (y > 0)
-				{
-					int startX = Board.ToTilePosX(collBnds.xMin),
-						endX = Board.ToTilePosX(collBnds.xMax);
-					IsOnGround = false;
-					for (int x = startX; x <= endX; ++x)
-					{
-						if (Board.IsSolid(new Vector2i(x, y - 1)))
-						{
-							IsOnGround = true;
-							break;
-						}
-					}
-				}
-			}
 
 			//Jump.
             if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
 			{
 				JumpsLeft -= 1;
 				MyVelocity = new Vector2(MyVelocity.x, Consts.Instance.JumpSpeed);
-				IsOnGround = false;
+				IsOnFloor = false;
 			}
 
 			//Action.
@@ -229,46 +193,47 @@ namespace Gameplay
 			}
 
 
-			//Update velocity.
-
-			Vector2 newVel = MyVelocity;
-
-			newVel.x = inputs.Move.x * Consts.Instance.PlayerSpeed;
-
-            if (!IsOnGround && newVel.y < 0.0f && inputs.Jump)
+			//Fall faster/slower based on input.
+            if (!IsOnFloor && MyVelocity.y < 0.0f && inputs.Jump)
             {
-                newVel.y += Consts.Instance.SlowFallAccel * Time.deltaTime;
+				MyVelocity = new Vector2(MyVelocity.x,
+										 MyVelocity.y +
+											(Consts.Instance.SlowFallAccel * Time.deltaTime));
             }
-			if (!IsOnGround && inputs.Move.y < 0.0f)
+			if (!IsOnFloor && inputs.Move.y < 0.0f)
 			{
-				newVel.y += Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime;
+				MyVelocity = new Vector2(MyVelocity.x,
+										 MyVelocity.y +
+											 (Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime));
 			}
-
-			MyVelocity = newVel;
 		}
 		protected override void FixedUpdate()
 		{
 			//Apply gravity.
-			if (!IsOnGround)
+			if (!IsOnFloor)
 			{
-				Vector2 newVel = MyVelocity;
-				newVel.y += Consts.Instance.Gravity * Time.deltaTime;
-				MyVelocity = newVel;
+				MyVelocity = new Vector2(MyVelocity.x,
+										 MyVelocity.y + (Consts.Instance.Gravity * Time.deltaTime));
 			}
 
 			base.FixedUpdate();
 		}
 
+		protected override float GetLeftRightMoveInput()
+		{
+			return InputManager.Instance.Inputs[InputIndex].Move.x * Consts.Instance.PlayerSpeed;
+		}
+
 
 		public override void OnHitFloor(Vector2i floorPos)
 		{
-			IsOnGround = true;
+			base.OnHitFloor(floorPos);
 			JumpsLeft = Consts.Instance.NJumps;
 		}
 
 		public override void OnHitDynamicObject(DynamicObject other)
 		{
-			//TODO: React to a thrown block.
+			//TODO: React to a thrown block. Probably have to delegate this to a gameplay object.
 		}
 	}
 }

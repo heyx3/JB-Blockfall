@@ -4,7 +4,6 @@ using System.Linq;
 using UnityEngine;
 
 using Assert = UnityEngine.Assertions.Assert;
-using BoxRayHit = Raycasting.BoxRayHit;
 
 
 namespace GameBoard
