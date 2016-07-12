@@ -5,7 +5,7 @@ using UnityEngine;
 using GridCasting2D;
 
 
-namespace Gameplay
+namespace GameObjects
 {
 	/// <summary>
 	/// An object that collides with the game board and with other DynamicObjects.
@@ -19,7 +19,7 @@ namespace Gameplay
 
 		private static List<DynamicObject> objectsInWorld = new List<DynamicObject>();
 
-		public IEnumerable<DynamicObject> ObjectsInWorld { get { return objectsInWorld; } }
+		public IEnumerable<DynamicObject> ActiveObjectsInWorld { get { return objectsInWorld; } }
 
 		protected static GameBoard.Board Board { get { return GameBoard.Board.Instance; } }
 
@@ -263,21 +263,5 @@ namespace Gameplay
 		///     and the order is nondeterministic.
 		/// </summary>
 		public virtual void OnHitDynamicObject(DynamicObject other) { }
-
-
-		protected void DoActionAfterTime(Action toDo, float time)
-		{
-			StartCoroutine(DoActionCoroutine(toDo, time));
-		}
-		private System.Collections.IEnumerator DoActionCoroutine(Action toDo, float time)
-		{
-			yield return new WaitForSeconds(time);
-			toDo();
-		}
-
-
-		private struct WallsMap<T>
-		{
-		}
 	}
 }

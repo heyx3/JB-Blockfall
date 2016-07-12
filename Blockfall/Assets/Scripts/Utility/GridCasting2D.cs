@@ -384,8 +384,15 @@ namespace GridCasting2D
 			}
 
 			//If this block was solid, exit. Otherwise, move to the next one.
+			int count = 0;
 			while (startH.Distance < maxDist)
 			{
+				count += 1;
+				if (count > 500)
+				{
+					Assert.IsTrue(false, "Infinite loop in grid raycast");
+					return false;
+				}
 				if (CastCell(posI, cellBnds, ray, startH, endH, ref outDataIfHit))
 				{
 					return true;
@@ -404,7 +411,9 @@ namespace GridCasting2D
 
 					cellBnds = ToWorldBounds(posI);
 					nHits = cellBnds.Cast(ray, rayInvDir, ref startH, ref endH, epsilon);
-					Assert.AreEqual(2U, nHits, posI.ToString() + " " + startH + " " + endH);
+					Assert.AreEqual(2U, nHits,
+									posI.ToString() + "; " + startH + "; " + endH + "; " +
+										ray.origin.ToString(4) + "; " + ray.direction.ToString(4));
 				}
 			}
 

@@ -40,8 +40,8 @@ namespace GameBoard.Generators
 								  Vector2i.Zero,
 								  new Vector2i(PreviewLevelWidth - 1, PreviewLevelHeight - 1));
 
-				HorzCurve = MakeCurve(horzLines, gen.Threshold);
-				VertCurve = MakeCurve(vertLines, gen.Threshold);
+				HorzCurve = MakeCurve(horzLines);
+				VertCurve = MakeCurve(vertLines);
 			}
 
 
@@ -51,7 +51,7 @@ namespace GameBoard.Generators
 			VertCurve = EditorGUILayout.CurveField("Vertical Noise", VertCurve);
 			GUI.enabled = true;
 		}
-		private AnimationCurve MakeCurve(float[] keys, float threshold)
+		private AnimationCurve MakeCurve(float[] keys)
 		{
 			float epsilon = 0.001f;
 			AnimationCurve ac = new AnimationCurve();

@@ -1,13 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 
-namespace Gameplay
+namespace GameObjects
 {
     [RequireComponent(typeof(BlinkRenderer))]
 	public class Player : ControllableObject
 	{
+		public static IEnumerable<Player> AllPlayers { get { return allPlayers; } }
+		public static IEnumerable<Player> AllActivePlayers { get { return allPlayers.Where(p => p.gameObject.activeSelf); } }
+		private static List<Player> allPlayers = new List<Player>();
+
+		protected static GameLogic.GameMode GameMode { get { return GameLogic.GameMode.Instance; } }
+
+
+		public Transform ArrowPivot;
+
 		public int InputIndex = InputManager.FirstKeyboardInput;
 
 		public string BlockHoldChildName = "Block Hold Position",
@@ -104,6 +114,8 @@ namespace Gameplay
 		{
 			base.Awake();
 
+			allPlayers.Add(this);
+
             Blinker = GetComponent<BlinkRenderer>();
             TimeTillVulnerable = SpawnInvincibleTime;
 
@@ -119,6 +131,10 @@ namespace Gameplay
 			GrabForwardsBelowIndicator = TryGetChild(GrabForwardsBelowChildName);
 			GrabBackwardsAboveIndicator = TryGetChild(GrabBackwardsAboveChildName);
 			GrabBackwardsBelowIndicator = TryGetChild(GrabBackwardsBelowChildName);
+		}
+		void OnDestroy()
+		{
+			allPlayers.Remove(this);
 		}
         void Start()
         {
@@ -140,6 +156,30 @@ namespace Gameplay
             
 			InputManager.Values inputs = InputManager.Instance.Inputs[InputIndex],
 							    inputsLastFrame = InputManager.Instance.InputsLastFrame[InputIndex];
+
+			//Mirror based on aiming.
+			if (inputs.Aim.x < 0.0f)
+			{
+				MyTr.localScale = new Vector3(-Math.Abs(MyTr.localScale.x),
+											  MyTr.localScale.y, MyTr.localScale.z);
+			}
+			else if (inputs.Aim.x > 0.0f)
+			{
+				MyTr.localScale = new Vector3(Math.Abs(MyTr.localScale.x),
+											  MyTr.localScale.y, MyTr.localScale.z);
+			}
+
+
+			//Update aim arrow.
+			Debug.Log(inputs.Aim.ToString(4));
+			if (inputs.Aim.x != 0.0f || inputs.Aim.y != 0.0f)
+			{
+				Vector2 lookDir = inputs.Aim;
+				lookDir = new Vector2(lookDir.x * MyTr.localScale.x, lookDir.y * MyTr.localScale.y);
+				ArrowPivot.localRotation = Quaternion.identity;
+				ArrowPivot.Rotate(new Vector3(0.0f, 0.0f, 1.0f),
+								  Mathf.Atan2(lookDir.y, lookDir.x) * Mathf.Rad2Deg);
+			}
 
 			//Jump.
             if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
@@ -181,7 +221,7 @@ namespace Gameplay
 					tb.MySpr.sprite = Board.GetSpriteFor(HoldingBlock);
 
 					//Calculate the block's velocity.
-					tb.MyVelocity = new Vector2(inputs.Move.x.Sign(), inputs.Move.y.Sign()).normalized;
+					tb.MyVelocity = inputs.Aim;
 					if (tb.MyVelocity == Vector2.zero)
 					{
 						tb.MyVelocity = new Vector2(Mathf.Sign(MyTr.localScale.x), 0.0f);
@@ -233,7 +273,12 @@ namespace Gameplay
 
 		public override void OnHitDynamicObject(DynamicObject other)
 		{
-			//TODO: React to a thrown block. Probably have to delegate this to a gameplay object.
+			if (other is ThrownBlock)
+			{
+				ThrownBlock blck = (ThrownBlock)other;
+				if (!IsInvincible && blck.Owner != this)
+					GameMode.OnPlayerHit(this);
+			}
 		}
 	}
 }

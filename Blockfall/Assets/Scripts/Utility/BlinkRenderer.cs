@@ -20,8 +20,9 @@ public class BlinkRenderer: MonoBehaviour
         enabled = false;
     }
 
-    void Start()
+    public void Start()
     {
+		enabled = true;
         TimeToBlink = BlinkInteval;
     }
     void Update()

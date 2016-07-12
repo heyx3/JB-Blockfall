@@ -2,7 +2,7 @@
 using UnityEngine;
 
 
-namespace Gameplay
+namespace GameObjects
 {
 	public class TestDynamicObj : DynamicObject
 	{

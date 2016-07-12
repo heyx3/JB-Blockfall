@@ -22,7 +22,8 @@ namespace GameBoard.Generators
 								  VerticalNoise = new List<PerlinOctave>();
 		public AnimationCurve HorizontalPower = AnimationCurve.Linear(0.0f, 1.0f, 1.0f, 1.0f),
 							  VerticalPower = AnimationCurve.Linear(0.0f, 1.0f, 1.0f, 1.0f);
-		public float Threshold = 0.3f;
+		public float NormalThreshold = 0.3f,
+					 ImmobileThreshold = 0.6f;
 
 		public bool MirrorX;
 
@@ -89,7 +90,11 @@ namespace GameBoard.Generators
 									  Mathf.Pow(vertLine[posI.y],
 												VerticalPower.Evaluate((float)posI.y /
 																	   (float)(range.y - 1)));
-						b[posI] = (value > Threshold ? BlockTypes.Normal : BlockTypes.Empty);
+						b[posI] = (value > ImmobileThreshold ?
+									   BlockTypes.Immobile :
+									   (value > NormalThreshold ?
+											BlockTypes.Normal :
+											BlockTypes.Empty));
 					}
 				}
 			}

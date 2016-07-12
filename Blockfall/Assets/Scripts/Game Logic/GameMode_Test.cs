@@ -4,10 +4,10 @@ using System.Linq;
 using UnityEngine;
 
 
-namespace Gameplay
+namespace GameLogic
 {
-    public class PlayerSpawner : MonoBehaviour
-    {
-
-    }
+	public class GameMode_Test : GameMode
+	{
+		
+	}
 }

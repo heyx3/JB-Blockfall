@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 
-namespace Gameplay
+namespace GameObjects
 {
 	/// <summary>
 	/// Turns into a solid block as soon as it hits something.
@@ -24,10 +24,9 @@ namespace Gameplay
 		public override void OnHitDynamicObject(DynamicObject other)
 		{
 			Player p = other as Player;
-			if (p != null && !p.IsInvincible)
+			if (p != null && !p.IsInvincible && Owner != p)
 			{
-				if (Owner != p)
-					Settle();
+				Settle();
 			}
 			else if (other is ThrownBlock)
 			{
@@ -45,7 +44,7 @@ namespace Gameplay
 
 			MySpr.enabled = false;
 			MyVelocity = Vector2.zero;
-			DoActionAfterTime(() => Destroy(gameObject), 0.001f);
+			ActionScheduler.Instance.Schedule(() => Destroy(gameObject), 5);
 
 			Board[tilePos] = BlockType;
 		}

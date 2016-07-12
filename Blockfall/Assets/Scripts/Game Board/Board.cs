@@ -95,6 +95,10 @@ namespace GameBoard
 		{
 			return new Vector2(tilePos.x + 0.5f, tilePos.y + 0.5f);
 		}
+		public Vector2 ToMinCorner(Vector2i tilePos)
+		{
+			return new Vector2(tilePos.x, tilePos.y);
+		}
 
 		public int ToTilePosX(float x) { return (int)x; }
 		public int ToTilePosY(float y) { return (int)y; }
@@ -118,6 +122,10 @@ namespace GameBoard
 		}
 
 
+		/// <summary>
+		/// The returned positions are the min corner (i.e. bottom-left)
+		///     of each area that the given object can spawn in.
+		/// </summary>
 		public List<Vector2i> GetSpawnablePositions(Vector2i toSearchMin, Vector2i toSearchMax,
 													Vector2i objectSize, bool mustSpawnOnGround,
 													Func<Vector2i, BlockTypes, bool> isSpawnableIn)
@@ -132,12 +140,9 @@ namespace GameBoard
 
             //Check evey row for valid spawn places.
             //Split this computation across threads to speed it up.
-            ThreadedRunner.Run(4, toSearchSize.y, (startI, endI) =>
+			int endX = toSearchMax.x - objectSize.x + 1;
+            ThreadedRunner.Run(4, toSearchSize.y - objectSize.y + 1, (startI, endI) =>
             {
-                //Cut off any Y values where the given bounds stick out above the search area.
-                endI = Math.Min(endI, toSearchMax.y - objectSize.y + 1);
-				int endX = toSearchMax.x - objectSize.x + 1;
-
                 //Go through every block this thread is supposed to cover.
                 for (int j = startI; j <= endI; ++j)
                 {
@@ -173,9 +178,13 @@ namespace GameBoard
                             bool isGood = true;
                             for (Vector2i pos = startBounds; isGood && pos.y <= endBounds.y; ++pos.y)
                             {
+								Assert.IsTrue(pos.x >= toSearchMin.x && pos.x <= toSearchMax.x &&
+												  pos.y >= toSearchMin.y && pos.y <= toSearchMax.y,
+											  pos.ToString() + "; min: " + toSearchMin + "; max: " + toSearchMax);
+
                                 for (pos.x = startBounds.x; pos.x <= endBounds.x; ++pos.x)
                                 {
-                                    if (IsSolid(pos) || !isSpawnableIn(pos, this[pos]))
+                                    if (!isSpawnableIn(pos, this[pos]))
                                     {
                                         isGood = false;
                                         break;

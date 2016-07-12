@@ -3,7 +3,7 @@ using System.Collections;
 using UnityEngine;
 
 
-namespace Gameplay
+namespace GameObjects
 {
 	[RequireComponent(typeof(Player))]
 	[RequireComponent(typeof(SpriteRenderer))]

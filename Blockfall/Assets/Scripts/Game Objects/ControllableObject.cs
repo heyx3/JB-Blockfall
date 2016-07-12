@@ -4,7 +4,7 @@ using System.Linq;
 using UnityEngine;
 
 
-namespace Gameplay
+namespace GameObjects
 {
 	public abstract class ControllableObject : DynamicObject
 	{
@@ -69,21 +69,24 @@ namespace Gameplay
 
 
 			//Check whether we're still on any surfaces.
-
+			const float epsilon = 0.001f;
 			if (IsOnFloor)
 			{
 				IsOnFloor = false;
-
+				
 				Rect collBnds = MyCollRect;
-				int y = Board.ToTilePosY(collBnds.yMin);
-				int startX = Board.ToTilePosX(collBnds.xMin),
-					endX = Board.ToTilePosX(collBnds.xMax);
-				for (int x = startX; x <= endX; ++x)
+				if (Mathf.Abs(collBnds.yMin - Mathf.RoundToInt(collBnds.yMin)) < epsilon)
 				{
-					if (Board.IsSolid(new Vector2i(x, y - 1)))
+					int y = Board.ToTilePosY(collBnds.yMin);
+					int startX = Board.ToTilePosX(collBnds.xMin),
+						endX = Board.ToTilePosX(collBnds.xMax);
+					for (int x = startX; x <= endX; ++x)
 					{
-						IsOnFloor = true;
-						break;
+						if (Board.IsSolid(new Vector2i(x, y - 1)))
+						{
+							IsOnFloor = true;
+							break;
+						}
 					}
 				}
 
@@ -96,15 +99,18 @@ namespace Gameplay
 				IsOnCeiling = false;
 
 				Rect collBnds = MyCollRect;
-				int y = Board.ToTilePosY(collBnds.yMax);
-				int startX = Board.ToTilePosX(collBnds.xMin),
-					endX = Board.ToTilePosX(collBnds.xMax);
-				for (int x = startX; x <= endX; ++x)
+				if (Mathf.Abs(collBnds.yMax - Mathf.RoundToInt(collBnds.yMax)) < epsilon)
 				{
-					if (Board.IsSolid(new Vector2i(x, y + 1)))
+					int y = Board.ToTilePosY(collBnds.yMax);
+					int startX = Board.ToTilePosX(collBnds.xMin),
+						endX = Board.ToTilePosX(collBnds.xMax);
+					for (int x = startX; x <= endX; ++x)
 					{
-						IsOnCeiling = true;
-						break;
+						if (Board.IsSolid(new Vector2i(x, y + 1)))
+						{
+							IsOnCeiling = true;
+							break;
+						}
 					}
 				}
 
@@ -117,15 +123,18 @@ namespace Gameplay
 				IsOnLeftWall = false;
 
 				Rect collBnds = MyCollRect;
-				int x = Board.ToTilePosX(collBnds.xMin);
-				int startY = Board.ToTilePosY(collBnds.yMin),
-					endY = Board.ToTilePosY(collBnds.yMax);
-				for (int y = startY; y <= endY; ++y)
+				if (Mathf.Abs(collBnds.xMin - Mathf.RoundToInt(collBnds.xMin)) < epsilon)
 				{
-					if (Board.IsSolid(new Vector2i(x - 1, y)))
+					int x = Board.ToTilePosX(collBnds.xMin);
+					int startY = Board.ToTilePosY(collBnds.yMin),
+						endY = Board.ToTilePosY(collBnds.yMax);
+					for (int y = startY; y <= endY; ++y)
 					{
-						IsOnLeftWall = true;
-						break;
+						if (Board.IsSolid(new Vector2i(x - 1, y)))
+						{
+							IsOnLeftWall = true;
+							break;
+						}
 					}
 				}
 
@@ -138,15 +147,18 @@ namespace Gameplay
 				IsOnRightWall = false;
 
 				Rect collBnds = MyCollRect;
-				int x = Board.ToTilePosX(collBnds.xMax);
-				int startY = Board.ToTilePosY(collBnds.yMin),
-					endY = Board.ToTilePosY(collBnds.yMax);
-				for (int y = startY; y <= endY; ++y)
+				if (Mathf.Abs(collBnds.xMax - Mathf.RoundToInt(collBnds.xMax)) < epsilon)
 				{
-					if (Board.IsSolid(new Vector2i(x + 1, y)))
+					int x = Board.ToTilePosX(collBnds.xMax);
+					int startY = Board.ToTilePosY(collBnds.yMin),
+						endY = Board.ToTilePosY(collBnds.yMax);
+					for (int y = startY; y <= endY; ++y)
 					{
-						IsOnRightWall = true;
-						break;
+						if (Board.IsSolid(new Vector2i(x + 1, y)))
+						{
+							IsOnRightWall = true;
+							break;
+						}
 					}
 				}
 
