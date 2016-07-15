@@ -171,7 +171,6 @@ namespace GameObjects
 
 
 			//Update aim arrow.
-			Debug.Log(inputs.Aim.ToString(4));
 			if (inputs.Aim.x != 0.0f || inputs.Aim.y != 0.0f)
 			{
 				Vector2 lookDir = inputs.Aim;
