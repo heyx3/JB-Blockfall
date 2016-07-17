@@ -27,9 +27,8 @@ namespace GameBoard
 
 		public int SpriteLayer = 1;
 		
-		[SerializeField]
-		private int WidthToGenerate = 20,
-					HeightToGenerate = 35;
+		public int WidthToGenerate = 20,
+				   HeightToGenerate = 35;
 
 		private Tile[,] tiles = null;
 		private Transform tileContainer;

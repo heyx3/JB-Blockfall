@@ -8,7 +8,6 @@ using Assert = UnityEngine.Assertions.Assert;
 
 namespace GameBoard
 {
-	[DisallowMultipleComponent]
 	public abstract class BoardGenerator_Base : MonoBehaviour
 	{
 		/// <summary>

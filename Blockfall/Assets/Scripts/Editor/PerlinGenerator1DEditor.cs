@@ -5,6 +5,7 @@ using UnityEditor;
 
 namespace GameBoard.Generators
 {
+	[Serializable]
 	[CustomEditor(typeof(BoardGenerator_Perlin1D))]
 	public class PerlinGenerator1DEditor : Editor
 	{
