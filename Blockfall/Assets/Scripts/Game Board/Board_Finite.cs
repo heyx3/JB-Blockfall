@@ -98,7 +98,6 @@ namespace GameBoard
 									 ref RaycastResult hitTileData, float maxDist)
 		{
 			RayHelper.IsBlockPassable = isBlockPassable;
-			//CastRegion region = new CastRegion(Vector2i.Zero, new Vector2i(Width - 1, Height - 1));
 			return RayHelper.Cast(ray, ref hitTileData, maxDist,
 								  0.00001f, new NullableCastRegion());
 		}
