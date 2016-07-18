@@ -24,7 +24,9 @@ namespace GameObjects
 		public override void OnHitDynamicObject(DynamicObject other)
 		{
 			Player p = other as Player;
-			if (p != null && !p.IsInvincible && Owner != p)
+			if (p != null && !p.IsInvincible && Owner != p &&
+				(GameLogic.GameSettings_Base.CurrentSettings.FriendlyFire ||
+				 Owner.TeamIndex != p.TeamIndex))
 			{
 				Settle();
 			}

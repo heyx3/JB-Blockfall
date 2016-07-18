@@ -13,11 +13,13 @@ namespace GameObjects
 		public static IEnumerable<Player> AllActivePlayers { get { return allPlayers.Where(p => p.gameObject.activeSelf); } }
 		private static List<Player> allPlayers = new List<Player>();
 
-		protected static GameLogic.GameMode GameMode { get { return GameLogic.GameMode.Instance; } }
+		protected static GameLogic.GameMode_Base GameMode { get { return GameLogic.GameMode_Base.Instance; } }
+		protected static GameLogic.GameSettings_Base GameSettings { get { return GameLogic.GameSettings_Base.CurrentSettings; } }
 
 
 		public Transform ArrowPivot;
 
+		public int TeamIndex = 0;
 		public int InputIndex = InputManager.FirstKeyboardInput;
 
 		public string BlockHoldChildName = "Block Hold Position",
@@ -29,11 +31,6 @@ namespace GameObjects
 					  GrabBackwardsAboveChildName = "Grab Backwards/Above Pos",
 					  GrabForwardsBelowChildName = "Grab Forwards/Below Pos",
 					  GrabBackwardsBelowChildName = "Grab Backwards/Below Pos";
-
-        /// <summary>
-        /// The player is invincible for this long when first created.
-        /// </summary>
-        public float SpawnInvincibleTime = 2.0f;
 
 
         [NonSerialized]
@@ -117,7 +114,6 @@ namespace GameObjects
 			allPlayers.Add(this);
 
             Blinker = GetComponent<BlinkRenderer>();
-            TimeTillVulnerable = SpawnInvincibleTime;
 
 			HoldingBlock = GameBoard.BlockTypes.Empty;
 			JumpsLeft = 0;
@@ -138,7 +134,7 @@ namespace GameObjects
 		}
         void Start()
         {
-            TimeTillVulnerable = SpawnInvincibleTime;
+            TimeTillVulnerable = Consts.Instance.SpawnInvincibilityTime;
             Blinker.enabled = true;
         }
 		protected override void Update()

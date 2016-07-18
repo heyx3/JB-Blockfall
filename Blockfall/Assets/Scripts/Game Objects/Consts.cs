@@ -13,6 +13,8 @@ namespace GameObjects
 		public float PlayerSpeed = 5.0f;
 		public float JumpSpeed = 5.0f;
 
+		public float SpawnInvincibilityTime = 2.0f;
+
 		public int NJumps = 2;
 
 		public float BlockThrowSpeed = 15.0f;

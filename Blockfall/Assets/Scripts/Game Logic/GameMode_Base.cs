@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace GameLogic
 {
-	public abstract class GameMode : Singleton<GameMode>
+	public abstract class GameMode_Base : Singleton<GameMode_Base>
 	{
 		public Camera GameCam;
 
@@ -15,11 +15,18 @@ namespace GameLogic
 		protected static GameObjects.Consts Consts { get { return GameObjects.Consts.Instance; } }
 
 
+		public virtual void OnPlayerHit(GameObjects.Player p)
+		{
+			GameUI_Base.Instance.OnPlayerHit(p);
+			RespondToPlayerHit(p);
+		}
+
+
 		/// <summary>
 		/// Reacts to the given player getting hit by something.
 		/// Default behavior: Respawns him somewhere randomly inside the game camera's visible region.
 		/// </summary>
-		public virtual void OnPlayerHit(GameObjects.Player p)
+		protected virtual void RespondToPlayerHit(GameObjects.Player p)
 		{
 			//Get the camera's viewable area.
 			Transform camTr = GameCam.transform;
@@ -50,9 +57,9 @@ namespace GameLogic
 										new Vector2(pBnds.width, pBnds.height) * 0.5f;
 					p.gameObject.SetActive(true);
 
-					p.TimeTillVulnerable = p.SpawnInvincibleTime;
+					p.TimeTillVulnerable = Consts.SpawnInvincibilityTime;
 					p.Blinker.Start();
-				}, 2.0f);
+				}, GameSettings_Base.CurrentSettings.RespawnTime);
 		}
 	}
 }

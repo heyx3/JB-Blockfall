@@ -6,8 +6,8 @@ using UnityEngine;
 
 namespace GameLogic
 {
-	public class GameMode_Test : GameMode
+	public class GameMode_Test : GameMode_Base
 	{
-		
+		public GameSettings_Base Settings = new GameSettings_Base();
 	}
 }
