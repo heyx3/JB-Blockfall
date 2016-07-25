@@ -17,6 +17,8 @@ namespace GameObjects
 		[NonSerialized]
 		public bool IsOnRightWall = false;
 
+		//TODO: Add "Velocity", and update Player to use it instead of VerticalSpeed.
+
 		
 		public override void OnHitFloor(Vector2i floorPos)
 		{

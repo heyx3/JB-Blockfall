@@ -13,8 +13,20 @@ namespace GameObjects
 		public GameBoard.BlockTypes BlockType;
 		public Player Owner;
 
+		[NonSerialized]
+		public Vector2 Velocity;
+
 		private bool deadYet = false;
 
+
+		protected override void FixedUpdate()
+		{
+			Vector2 moveAmnt = Velocity * Time.deltaTime;
+			HitsPerFace hits;
+			Move(ref moveAmnt, out hits, MovementTypes.Sweep);
+
+			base.FixedUpdate();
+		}
 
 		public override void OnHitLeftSide(Vector2i wallPos) { Settle(); }
 		public override void OnHitRightSide(Vector2i wallPos) { Settle(); }
@@ -45,7 +57,7 @@ namespace GameObjects
 			deadYet = true;
 
 			MySpr.enabled = false;
-			MyVelocity = Vector2.zero;
+			Velocity = Vector2.zero;
 			ActionScheduler.Instance.Schedule(() => Destroy(gameObject), 5);
 
 			Board[tilePos] = BlockType;

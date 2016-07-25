@@ -39,6 +39,9 @@ namespace GameObjects
         [NonSerialized]
         public float TimeTillVulnerable = -1.0f;
 
+		[NonSerialized]
+		public float VerticalSpeed = 0.0f;
+
 
         public bool IsInvincible { get { return TimeTillVulnerable > 0.0f; } }
 
@@ -180,11 +183,12 @@ namespace GameObjects
             if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
 			{
 				JumpsLeft -= 1;
-				MyVelocity = new Vector2(MyVelocity.x, Consts.Instance.JumpSpeed);
+				VerticalSpeed = Consts.Instance.JumpSpeed;
 				IsOnFloor = false;
 			}
 
 			//Action.
+			GameBoard.Board.RaycastResult dummyVar = new GameBoard.Board.RaycastResult();
 			if (inputs.Action && !inputsLastFrame.Action)
 			{
 				//If this player isn't holding a block, pick one up.
@@ -202,44 +206,45 @@ namespace GameObjects
 						}
 					}
 				}
-				//Otherwise, throw the block.
+				//Otherwise, throw the block if nothing is in the way.
 				else
 				{
-					GameObject thrownBlock = Instantiate(Consts.Instance.ThrownBlockPrefab);
-					
-					Transform tr = thrownBlock.transform;
-					tr.position = BlockHoldIndicator.position;
+					//If not aiming in any particular direction, just aim straight forward.
+					Vector2 aimDir = inputs.Aim;
+					if (aimDir == Vector2.zero)
+						aimDir = new Vector2(Mathf.Sign(MyTr.localScale.x), 0.0f);
 
-					ThrownBlock tb = thrownBlock.GetComponent<ThrownBlock>();
-					tb.BlockType = HoldingBlock;
-					tb.Owner = this;
-					tb.MySpr.sprite = Board.GetSpriteFor(HoldingBlock);
-
-					//Calculate the block's velocity.
-					tb.MyVelocity = inputs.Aim;
-					if (tb.MyVelocity == Vector2.zero)
+					//Only throw the block if there's at least one empty tile in front of the player.
+					if (!Board.CastRay(new Ray2D(BlockHoldIndicator.position, aimDir),
+										(posI, bType) => !GameBoard.Board.IsSolid(bType),
+										ref dummyVar, 1.001f))
 					{
-						tb.MyVelocity = new Vector2(Mathf.Sign(MyTr.localScale.x), 0.0f);
-					}
-					tb.MyVelocity *= Consts.Instance.BlockThrowSpeed;
+						GameObject thrownBlock = Instantiate(Consts.Instance.ThrownBlockPrefab);
 
-					HoldingBlock = GameBoard.BlockTypes.Empty;
+						Transform tr = thrownBlock.transform;
+						tr.position = BlockHoldIndicator.position;
+
+						ThrownBlock tb = thrownBlock.GetComponent<ThrownBlock>();
+						tb.BlockType = HoldingBlock;
+						tb.Owner = this;
+						tb.MySpr.sprite = Board.GetSpriteFor(HoldingBlock);
+						
+						tb.Velocity = aimDir * Consts.Instance.BlockThrowSpeed;
+
+						HoldingBlock = GameBoard.BlockTypes.Empty;
+					}
 				}
 			}
 
 
 			//Fall faster/slower based on input.
-            if (!IsOnFloor && MyVelocity.y < 0.0f && inputs.Jump)
+            if (!IsOnFloor && VerticalSpeed < 0.0f && inputs.Jump)
             {
-				MyVelocity = new Vector2(MyVelocity.x,
-										 MyVelocity.y +
-											(Consts.Instance.SlowFallAccel * Time.deltaTime));
+				VerticalSpeed += Consts.Instance.SlowFallAccel * Time.deltaTime;
             }
 			if (!IsOnFloor && inputs.Move.y < 0.0f)
 			{
-				MyVelocity = new Vector2(MyVelocity.x,
-										 MyVelocity.y +
-											 (Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime));
+				VerticalSpeed = Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime;
 			}
 		}
 		protected override void FixedUpdate()
@@ -247,17 +252,20 @@ namespace GameObjects
 			//Apply gravity.
 			if (!IsOnFloor)
 			{
-				MyVelocity = new Vector2(MyVelocity.x,
-										 MyVelocity.y + (Consts.Instance.Gravity * Time.deltaTime));
+				VerticalSpeed += Consts.Instance.Gravity * Time.deltaTime;
 			}
+
+			//Move.
+			Move()
 
 			base.FixedUpdate();
 		}
 
-		protected override float GetLeftRightMoveInput()
+		protected override sealed float GetLeftRightMoveInput()
 		{
 			return InputManager.Instance.Inputs[InputIndex].Move.x * Consts.Instance.PlayerSpeed;
 		}
+		//TODO: Abstract out input so that AI players can exist too.
 
 
 		public override void OnHitFloor(Vector2i floorPos)
