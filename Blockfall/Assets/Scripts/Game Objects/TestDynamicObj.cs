@@ -9,9 +9,11 @@ namespace GameObjects
 		public Vector2 ConstantVelocity = Vector2.zero;
 
 
-		void Update()
+		protected override void FixedUpdate()
 		{
-			MyVelocity = ConstantVelocity;
+			base.FixedUpdate();
+
+			Move(ConstantVelocity * Time.deltaTime, MovementTypes.Normal);
 		}
 
 		public override void OnHitCeiling(Vector2i ceilingPos)

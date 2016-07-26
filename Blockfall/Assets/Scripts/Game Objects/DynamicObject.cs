@@ -85,14 +85,15 @@ namespace GameObjects
 			{
 				float yMin = currentBounds.yMin,
 					  yMax = currentBounds.yMax;
-				float yIncrement = 1.0f / (nCastsPerSide.x + 1);
+				float yIncrement = currentBounds.height / (nCastsPerSide.x + 1);
+				float castLen = Math.Abs(moveAmount.x);
 
 				GameBoard.Board.RaycastResult result = new GameBoard.Board.RaycastResult();
-				for (float y = yMin + yIncrement; y <= yMax + 0.001f; y += yIncrement)
+				for (float y = yMin; y <= yMax + 0.001f; y += yIncrement)
 				{
 					Vector2 rayStart = new Vector2(fromCorner.x, y);
 					if (Board.CastRay(new Ray2D(rayStart, new Vector2(movementSign.x, 0.0f)),
-									  AllowsMovement, ref result, dist + 0.001f))
+									  AllowsMovement, ref result, castLen + 0.001f))
 					{
 						if (hitsPerFace.Add(result))
 						{
@@ -102,6 +103,7 @@ namespace GameObjects
 							UnityEngine.Assertions.Assert.IsFalse(result.Hit.HitSides.HasYFace());
 
 							moveAmount.x = result.Hit.Pos.x - rayStart.x - (movementSign.x * 0.0001f);
+							castLen = Math.Abs(moveAmount.x);
 
 							dist = moveAmount.magnitude;
 							moveAmountN = moveAmount / dist;
@@ -116,14 +118,15 @@ namespace GameObjects
 			{
 				float xMin = currentBounds.xMin,
 					  xMax = currentBounds.xMax;
-				float xIncrement = 1.0f / (nCastsPerSide.y + 1);
+				float xIncrement = currentBounds.width / (nCastsPerSide.y + 1);
+				float castLen = Math.Abs(moveAmount.y);
 
 				GameBoard.Board.RaycastResult result = new GameBoard.Board.RaycastResult();
-				for (float x = xMin + xIncrement; x <= xMax + 0.001f; x += xIncrement)
+				for (float x = xMin; x <= xMax + 0.001f; x += xIncrement)
 				{
 					Vector2 rayStart = new Vector2(x, fromCorner.y);
 					if (Board.CastRay(new Ray2D(rayStart, new Vector2(0.0f, movementSign.y)),
-									  AllowsMovement, ref result, dist + 0.001f))
+									  AllowsMovement, ref result, castLen + 0.001f))
 					{
 						if (hitsPerFace.Add(result))
 						{
@@ -133,6 +136,7 @@ namespace GameObjects
 							UnityEngine.Assertions.Assert.IsFalse(result.Hit.HitSides.HasXFace());
 
 							moveAmount.y = result.Hit.Pos.y - rayStart.y - (movementSign.y * 0.0001f);
+							castLen = Math.Abs(moveAmount.y);
 
 							dist = moveAmount.magnitude;
 							moveAmountN = moveAmount / dist;
@@ -253,12 +257,25 @@ namespace GameObjects
 			/// </summary>
 			Teleport,
 		}
-
+		
 		/// <summary>
 		/// Tries to move this object the given amount.
 		/// Returns whether a tile was hit during this movement.
 		/// </summary>
-		/// <param name="moveAmount">Constrains the value</param>
+		/// <param name="hitsPerFace">The collision information for each face that this object collided with.</param>
+		/// <param name="movementType">How the movement works.</param>
+		public bool Move(Vector2 moveAmount, MovementTypes movementType)
+		{
+			HitsPerFace dummy;
+			return Move(ref moveAmount, out dummy, movementType);
+		}
+		/// <summary>
+		/// Tries to move this object the given amount.
+		/// Returns whether a tile was hit during this movement.
+		/// </summary>
+		/// <param name="moveAmount">
+		/// The amount to move. Gets changed to the actual amount moved after tile collision detection.
+		/// </param>
 		/// <param name="hitsPerFace">The collision information for each face that this object collided with.</param>
 		/// <param name="movementType">How the movement works.</param>
 		public bool Move(ref Vector2 moveAmount, out HitsPerFace hitsPerFace, MovementTypes movementType)
@@ -284,21 +301,22 @@ namespace GameObjects
 							if (Board.IsSolid(posI))
 							{
 								//Sweep.
-								HitsPerFace faceHits = new HitsPerFace();
-								if (TrySweep(currentBnds,
-											 new Vector2i(NCollisionRaysXFace,
-														  NCollisionRaysYFace),
-											 ref moveAmount, out hitsPerFace))
+								bool hitSomething = TrySweep(currentBnds,
+															 new Vector2i(NCollisionRaysXFace,
+																		  NCollisionRaysYFace),
+															 ref moveAmount, out hitsPerFace);
+								UnityEngine.Assertions.Assert.IsTrue(hitSomething);
+									
 								{
 									//Raise events for the various walls that were hit.
-									if (faceHits.MinX.HasValue)
-										OnHitRightSide(faceHits.MinX.Value.Pos);
-									if (faceHits.MaxX.HasValue)
-										OnHitLeftSide(faceHits.MaxX.Value.Pos);
-									if (faceHits.MinY.HasValue)
-										OnHitCeiling(faceHits.MinY.Value.Pos);
-									if (faceHits.MaxY.HasValue)
-										OnHitFloor(faceHits.MaxY.Value.Pos);
+									if (hitsPerFace.MinX.HasValue)
+										OnHitRightSide(hitsPerFace.MinX.Value.Pos);
+									if (hitsPerFace.MaxX.HasValue)
+										OnHitLeftSide(hitsPerFace.MaxX.Value.Pos);
+									if (hitsPerFace.MinY.HasValue)
+										OnHitCeiling(hitsPerFace.MinY.Value.Pos);
+									if (hitsPerFace.MaxY.HasValue)
+										OnHitFloor(hitsPerFace.MaxY.Value.Pos);
 
 									didHit = true;
 									break;

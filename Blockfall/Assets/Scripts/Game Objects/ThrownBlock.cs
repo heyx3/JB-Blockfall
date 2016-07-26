@@ -21,10 +21,7 @@ namespace GameObjects
 
 		protected override void FixedUpdate()
 		{
-			Vector2 moveAmnt = Velocity * Time.deltaTime;
-			HitsPerFace hits;
-			Move(ref moveAmnt, out hits, MovementTypes.Sweep);
-
+			Move(Velocity * Time.deltaTime, MovementTypes.Sweep);
 			base.FixedUpdate();
 		}
 

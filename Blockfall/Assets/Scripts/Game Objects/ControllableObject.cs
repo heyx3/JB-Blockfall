@@ -8,6 +8,9 @@ namespace GameObjects
 {
 	public abstract class ControllableObject : DynamicObject
 	{
+		public float GravityMultiplier = 1.0f;
+		public MovementTypes MovementType = MovementTypes.Normal;
+
 		[NonSerialized]
 		public bool IsOnFloor = false;
 		[NonSerialized]
@@ -17,17 +20,22 @@ namespace GameObjects
 		[NonSerialized]
 		public bool IsOnRightWall = false;
 
-		//TODO: Add "Velocity", and update Player to use it instead of VerticalSpeed.
+		[NonSerialized]
+		public float VerticalSpeed = 0.0f;
+
+		public float LastMoveSpeedX { get; private set; }
 
 		
 		public override void OnHitFloor(Vector2i floorPos)
 		{
 			base.OnHitFloor(floorPos);
+			VerticalSpeed = Math.Max(0.0f, VerticalSpeed);
 			IsOnFloor = true;
 		}
 		public override void OnHitCeiling(Vector2i ceilingPos)
 		{
 			base.OnHitCeiling(ceilingPos);
+			VerticalSpeed = Math.Min(0.0f, VerticalSpeed);
 			IsOnCeiling = true;
 		}
 		public override void OnHitLeftSide(Vector2i wallPos)
@@ -46,24 +54,57 @@ namespace GameObjects
 		public virtual void OnNoLeftWall() { }
 		public virtual void OnNoRightWall() { }
 
-		protected virtual void Update()
+		protected override void Awake()
 		{
-			//Update movement.
-			float moveX = GetLeftRightMoveInput();
-			if ((IsOnLeftWall && moveX < 0.0f) ||
-				(IsOnRightWall && moveX > 0.0f))
-			{
-				moveX = 0.0f;
-			}
-			MyVelocity = new Vector2(moveX, MyVelocity.y);
+			base.Awake();
 
-			//Mirror the object based on movement input:
-			if (moveX < 0.0f)
+			LastMoveSpeedX = 0.0f;
+		}
+		protected override void FixedUpdate()
+		{
+			base.FixedUpdate();
+
+
+			//Update movement.
+			
+			Vector2 movement = new Vector2(0.0f, VerticalSpeed);
+
+			//Falling:
+			if (!IsOnFloor)
+				VerticalSpeed += Consts.Instance.Gravity * GravityMultiplier * Time.deltaTime;
+			movement.y = VerticalSpeed;
+
+			//Moving left/right:
+			LastMoveSpeedX = GetLeftRightMoveInput();
+			if ((!IsOnLeftWall || LastMoveSpeedX > 0.0f) &&
+				(!IsOnRightWall || LastMoveSpeedX < 0.0f))
+			{
+				movement.x = LastMoveSpeedX;
+			}
+
+			//Apply the movement:
+			movement *= Time.deltaTime;
+			HitsPerFace outHits;
+			Move(ref movement, out outHits, MovementType);
+
+			//Any actual movement will remove this object from a surface.
+			if (movement.x < -0.0f)
+				IsOnRightWall = false;
+			else if (movement.x > 0.0f)
+				IsOnLeftWall = false;
+			if (movement.y < -0.0f)
+				IsOnCeiling = false;
+			else if (movement.y > 0.0f)
+				IsOnFloor = false;
+
+
+			//Mirror horizontally based on movement input.
+			if (LastMoveSpeedX < 0.0f)
 			{
 				MyTr.localScale = new Vector3(-Math.Abs(MyTr.localScale.x),
 											  MyTr.localScale.y, MyTr.localScale.z);
 			}
-			else if (moveX > 0.0f)
+			else if (LastMoveSpeedX > 0.0f)
 			{
 				MyTr.localScale = new Vector3(Math.Abs(MyTr.localScale.x),
 											  MyTr.localScale.y, MyTr.localScale.z);
@@ -74,23 +115,8 @@ namespace GameObjects
 			const float epsilon = 0.001f;
 			if (IsOnFloor)
 			{
-				IsOnFloor = false;
-				
-				Rect collBnds = MyCollRect;
-				if (Mathf.Abs(collBnds.yMin - Mathf.RoundToInt(collBnds.yMin)) < epsilon)
-				{
-					int y = Board.ToTilePosY(collBnds.yMin);
-					int startX = Board.ToTilePosX(collBnds.xMin),
-						endX = Board.ToTilePosX(collBnds.xMax);
-					for (int x = startX; x <= endX; ++x)
-					{
-						if (Board.IsSolid(new Vector2i(x, y - 1)))
-						{
-							IsOnFloor = true;
-							break;
-						}
-					}
-				}
+				Rect myBounds = MyCollRect;
+				IsOnFloor = IsOnSurfaceY(myBounds, myBounds.yMin, -1, epsilon);
 
 				if (!IsOnFloor)
 					OnNoFloor();
@@ -98,23 +124,8 @@ namespace GameObjects
 
 			if (IsOnCeiling)
 			{
-				IsOnCeiling = false;
-
-				Rect collBnds = MyCollRect;
-				if (Mathf.Abs(collBnds.yMax - Mathf.RoundToInt(collBnds.yMax)) < epsilon)
-				{
-					int y = Board.ToTilePosY(collBnds.yMax);
-					int startX = Board.ToTilePosX(collBnds.xMin),
-						endX = Board.ToTilePosX(collBnds.xMax);
-					for (int x = startX; x <= endX; ++x)
-					{
-						if (Board.IsSolid(new Vector2i(x, y + 1)))
-						{
-							IsOnCeiling = true;
-							break;
-						}
-					}
-				}
+				Rect myBounds = MyCollRect;
+				IsOnCeiling = IsOnSurfaceY(myBounds, myBounds.yMax, 1, epsilon);
 
 				if (!IsOnCeiling)
 					OnNoCeiling();
@@ -122,23 +133,8 @@ namespace GameObjects
 			
 			if (IsOnLeftWall)
 			{
-				IsOnLeftWall = false;
-
-				Rect collBnds = MyCollRect;
-				if (Mathf.Abs(collBnds.xMin - Mathf.RoundToInt(collBnds.xMin)) < epsilon)
-				{
-					int x = Board.ToTilePosX(collBnds.xMin);
-					int startY = Board.ToTilePosY(collBnds.yMin),
-						endY = Board.ToTilePosY(collBnds.yMax);
-					for (int y = startY; y <= endY; ++y)
-					{
-						if (Board.IsSolid(new Vector2i(x - 1, y)))
-						{
-							IsOnLeftWall = true;
-							break;
-						}
-					}
-				}
+				Rect myBounds = MyCollRect;
+				IsOnLeftWall = IsOnSurfaceX(myBounds, myBounds.xMin, -1, epsilon);
 
 				if (!IsOnLeftWall)
 					OnNoLeftWall();
@@ -146,28 +142,40 @@ namespace GameObjects
 
 			if (IsOnRightWall)
 			{
-				IsOnRightWall = false;
-
-				Rect collBnds = MyCollRect;
-				if (Mathf.Abs(collBnds.xMax - Mathf.RoundToInt(collBnds.xMax)) < epsilon)
-				{
-					int x = Board.ToTilePosX(collBnds.xMax);
-					int startY = Board.ToTilePosY(collBnds.yMin),
-						endY = Board.ToTilePosY(collBnds.yMax);
-					for (int y = startY; y <= endY; ++y)
-					{
-						if (Board.IsSolid(new Vector2i(x + 1, y)))
-						{
-							IsOnRightWall = true;
-							break;
-						}
-					}
-				}
+				Rect myBounds = MyCollRect;
+				IsOnRightWall = IsOnSurfaceX(myBounds, myBounds.xMax, 1, epsilon);
 
 				if (!IsOnRightWall)
 					OnNoRightWall();
 			}
 		}
 		protected abstract float GetLeftRightMoveInput();
+		
+		private bool IsOnSurfaceX(Rect myBounds, float boundsEdgeX, int dir, float epsilon)
+		{
+			if (Math.Abs(boundsEdgeX - Mathf.RoundToInt(boundsEdgeX)) < epsilon)
+			{
+				int x = Board.ToTilePosX(boundsEdgeX);
+				int startY = Board.ToTilePosY(myBounds.yMin),
+					endY = Board.ToTilePosY(myBounds.yMax);
+				for (int y = startY; y <= endY; ++y)
+					if (Board.IsSolid(new Vector2i(x + dir, y)))
+						return true;
+			}
+			return false;
+		}
+		private bool IsOnSurfaceY(Rect myBounds, float boundsEdgeY, int dir, float epsilon)
+		{
+			if (Math.Abs(boundsEdgeY - Mathf.RoundToInt(boundsEdgeY)) < epsilon)
+			{
+				int y = Board.ToTilePosY(boundsEdgeY);
+				int startX = Board.ToTilePosX(myBounds.xMin),
+					endX = Board.ToTilePosX(myBounds.xMax);
+				for (int x = startX; x <= endX; ++x)
+					if (Board.IsSolid(new Vector2i(x, y + dir)))
+						return true;
+			}
+			return false;
+		}
 	}
 }

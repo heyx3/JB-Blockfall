@@ -6,6 +6,8 @@ using UnityEngine;
 
 namespace GameObjects
 {
+	//TODO: Abstract out input so that AI players can exist too.
+
     [RequireComponent(typeof(BlinkRenderer))]
 	public class Player : ControllableObject
 	{
@@ -35,12 +37,10 @@ namespace GameObjects
 
         [NonSerialized]
 		public int JumpsLeft;
+		private bool jumpedSinceFixedUpdate = false;
 
         [NonSerialized]
         public float TimeTillVulnerable = -1.0f;
-
-		[NonSerialized]
-		public float VerticalSpeed = 0.0f;
 
 
         public bool IsInvincible { get { return TimeTillVulnerable > 0.0f; } }
@@ -103,13 +103,13 @@ namespace GameObjects
 				yield return GrabBackwardsAboveIndicator;
 			}
 		}
-
 		private Transform TryGetChild(string name)
 		{
 			Transform tr = MyTr.FindChild(name);
 			UnityEngine.Assertions.Assert.IsNotNull(tr, "Child named \"" + name + "\" does not exist in player");
 			return tr;
 		}
+
 		protected override void Awake()
 		{
 			base.Awake();
@@ -131,19 +131,17 @@ namespace GameObjects
 			GrabBackwardsAboveIndicator = TryGetChild(GrabBackwardsAboveChildName);
 			GrabBackwardsBelowIndicator = TryGetChild(GrabBackwardsBelowChildName);
 		}
-		void OnDestroy()
+		protected virtual void OnDestroy()
 		{
 			allPlayers.Remove(this);
 		}
-        void Start()
+        protected virtual void Start()
         {
             TimeTillVulnerable = Consts.Instance.SpawnInvincibilityTime;
             Blinker.enabled = true;
         }
-		protected override void Update()
+		protected virtual void Update()
 		{
-			base.Update();
-
             //Update invincibility.
             if (TimeTillVulnerable > 0.0f)
             {
@@ -180,12 +178,24 @@ namespace GameObjects
 			}
 
 			//Jump.
-            if (inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
+            if (!jumpedSinceFixedUpdate && inputs.Jump && !inputsLastFrame.Jump && JumpsLeft > 0)
 			{
+				jumpedSinceFixedUpdate = false;
 				JumpsLeft -= 1;
 				VerticalSpeed = Consts.Instance.JumpSpeed;
 				IsOnFloor = false;
 			}
+
+			//Fall faster/slower based on input.
+            if (!IsOnFloor && VerticalSpeed < 0.0f && inputs.Jump)
+            {
+				VerticalSpeed += Consts.Instance.SlowFallAccel * Time.deltaTime;
+            }
+			if (!IsOnFloor && inputs.Move.y < 0.0f)
+			{
+				VerticalSpeed += Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime;
+			}
+
 
 			//Action.
 			GameBoard.Board.RaycastResult dummyVar = new GameBoard.Board.RaycastResult();
@@ -195,7 +205,7 @@ namespace GameObjects
 				if (HoldingBlock == GameBoard.BlockTypes.Empty)
 				{
 					foreach (Transform indicator in GetIndicatorsToSearch(inputs.Move.y.SignI(),
-																		  (inputs.Move.x != 0)))
+																		  (inputs.Move.x != 0.0f)))
 					{
 						Vector2i tilePos = Board.ToTilePos(indicator.position);
 						if (Board.CanPickUp(tilePos))
@@ -214,6 +224,7 @@ namespace GameObjects
 					if (aimDir == Vector2.zero)
 						aimDir = new Vector2(Mathf.Sign(MyTr.localScale.x), 0.0f);
 
+					//TODO: Sweep the block, find the closest time to contact, and see if the block there gets in the way of this player.
 					//Only throw the block if there's at least one empty tile in front of the player.
 					if (!Board.CastRay(new Ray2D(BlockHoldIndicator.position, aimDir),
 										(posI, bType) => !GameBoard.Board.IsSolid(bType),
@@ -235,29 +246,10 @@ namespace GameObjects
 					}
 				}
 			}
-
-
-			//Fall faster/slower based on input.
-            if (!IsOnFloor && VerticalSpeed < 0.0f && inputs.Jump)
-            {
-				VerticalSpeed += Consts.Instance.SlowFallAccel * Time.deltaTime;
-            }
-			if (!IsOnFloor && inputs.Move.y < 0.0f)
-			{
-				VerticalSpeed = Consts.Instance.FastFallAccel * inputs.Move.y * Time.deltaTime;
-			}
 		}
 		protected override void FixedUpdate()
 		{
-			//Apply gravity.
-			if (!IsOnFloor)
-			{
-				VerticalSpeed += Consts.Instance.Gravity * Time.deltaTime;
-			}
-
-			//Move.
-			Move()
-
+			jumpedSinceFixedUpdate = false;
 			base.FixedUpdate();
 		}
 
@@ -265,15 +257,12 @@ namespace GameObjects
 		{
 			return InputManager.Instance.Inputs[InputIndex].Move.x * Consts.Instance.PlayerSpeed;
 		}
-		//TODO: Abstract out input so that AI players can exist too.
-
 
 		public override void OnHitFloor(Vector2i floorPos)
 		{
 			base.OnHitFloor(floorPos);
 			JumpsLeft = Consts.Instance.NJumps;
 		}
-
 		public override void OnHitDynamicObject(DynamicObject other)
 		{
 			if (other is ThrownBlock)

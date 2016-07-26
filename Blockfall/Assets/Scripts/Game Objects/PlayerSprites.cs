@@ -31,17 +31,17 @@ namespace GameObjects
 		}
 		void Update()
 		{
-			if (ply.MyVelocity.y > speedEpsilon)
+			if (ply.VerticalSpeed > speedEpsilon)
 			{
 				spr.sprite = Choose(Consts.Instance.Sprite_Player_JumpBlock,
 									Consts.Instance.Sprite_Player_Jump);
 			}
-			else if (ply.MyVelocity.y < -speedEpsilon)
+			else if (ply.VerticalSpeed < -speedEpsilon)
 			{
 				spr.sprite = Choose(Consts.Instance.Sprite_Player_FallBlock,
 									Consts.Instance.Sprite_Player_Fall);
 			}
-			else if (Mathf.Abs(ply.MyVelocity.x) > speedEpsilon)
+			else if (Mathf.Abs(ply.LastMoveSpeedX) > speedEpsilon)
 			{
 				spr.sprite = Choose(Consts.Instance.Sprite_Player_WalkBlock,
 									Consts.Instance.Sprite_Player_Walk);

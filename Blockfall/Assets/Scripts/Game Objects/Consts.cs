@@ -6,6 +6,8 @@ namespace GameObjects
 {
 	public class Consts : Singleton<Consts>
 	{
+		//TODO: Move player constants to a sub-class inside Player so that per-player modifications can be made.
+
 		public float Gravity = -9.8f;
 		public float FastFallAccel = 50.0f,
                      SlowFallAccel = -50.0f;

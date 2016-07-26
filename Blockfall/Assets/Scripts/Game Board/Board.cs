@@ -99,8 +99,8 @@ namespace GameBoard
 			return new Vector2(tilePos.x, tilePos.y);
 		}
 
-		public int ToTilePosX(float x) { return (int)x; }
-		public int ToTilePosY(float y) { return (int)y; }
+		public int ToTilePosX(float x) { return Mathf.FloorToInt(x); }
+		public int ToTilePosY(float y) { return Mathf.FloorToInt(y); }
 		public Vector2i ToTilePos(Vector2 worldPos)
 		{
 			return new Vector2i(ToTilePosX(worldPos.x), ToTilePosY(worldPos.y));
@@ -121,6 +121,25 @@ namespace GameBoard
 		}
 
 
+		public bool Any(Vector2i regionMin, Vector2i regionMax,
+						Func<Vector2i, BlockTypes, bool> predicate)
+		{
+			for (Vector2i pos = regionMin; pos.y <= regionMax.y; ++pos.y)
+				for (pos.x = regionMin.x; pos.x <= regionMax.x; ++pos.x)
+					if (predicate(pos, this[pos]))
+						return true;
+			return false;
+		}
+		public bool All(Vector2i regionMin, Vector2i regionMax,
+						Func<Vector2i, BlockTypes, bool> predicate)
+		{
+			for (Vector2i pos = regionMin; pos.y <= regionMax.y; ++pos.y)
+				for (pos.x = regionMin.x; pos.x <= regionMax.x; ++pos.x)
+					if (!predicate(pos, this[pos]))
+						return false;
+			return true;
+		}
+
 		/// <summary>
 		/// The returned positions are the min corner (i.e. bottom-left)
 		///     of each area that the given object can spawn in.
@@ -139,6 +158,7 @@ namespace GameBoard
 
             //Check evey row for valid spawn places.
             //Split this computation across threads to speed it up.
+			//TODO: With infinite boards, getting the block at any position may create a new chunk, using the Unity API. This means we can't run this on a thread.
 			int endX = toSearchMax.x - objectSize.x + 1;
             ThreadedRunner.Run(4, toSearchSize.y - objectSize.y + 1, (startI, endI) =>
             {
@@ -152,59 +172,26 @@ namespace GameBoard
                         Vector2i startBounds = new Vector2i(x, _y),
                                  endBounds = startBounds + objectSize - new Vector2i(1, 1);
 
-                        //See whether all blocks on this row are on the ground.
-                        if (mustSpawnOnGround)
-                        {
-                            //Player can't be on the ground if he's at the bottom of the map!
-                            if (_y == 0)
-                                break;
-                            
-                            bool isGood = true;
-                            for (Vector2i pos = startBounds.LessY; pos.x <= endBounds.x; ++pos.x)
-                            {
-                                if (!IsSolid(pos))
-                                {
-                                    isGood = false;
-                                    break;
-                                }
-                            }
-                            if (!isGood)
-                                continue;
-                        }
-
-                        //See whether all blocks touched by the bounds are spawnable.
-                        {
-                            bool isGood = true;
-                            for (Vector2i pos = startBounds; isGood && pos.y <= endBounds.y; ++pos.y)
-                            {
-								Assert.IsTrue(pos.x >= toSearchMin.x && pos.x <= toSearchMax.x &&
-												  pos.y >= toSearchMin.y && pos.y <= toSearchMax.y,
-											  pos.ToString() + "; min: " + toSearchMin + "; max: " + toSearchMax);
-
-                                for (pos.x = startBounds.x; pos.x <= endBounds.x; ++pos.x)
-                                {
-                                    if (!isSpawnableIn(pos, this[pos]))
-                                    {
-                                        isGood = false;
-                                        break;
-                                    }
-                                }
-                            }
-                            if (!isGood)
-                                continue;
-                        }
-
-                        //This is a valid place to spawn!
-                        lock (listLock)
-                        {
-                            poses.Add(startBounds);
-                        }
+						//If this region is on solid ground (or doesn't have to be),
+						//    and it doesn't touch any solid blocks itself,
+						//    then it is a valid spawn position.
+						if ((!mustSpawnOnGround ||
+							 All(startBounds.LessY, endBounds.LessY,
+								 (posI, bType) => IsSolid(bType))) &&
+							All(startBounds, endBounds, isSpawnableIn))
+						{
+							lock(listLock)
+							{
+								poses.Add(startBounds);
+							}
+						}
                     }
                 }
             });
 
             return poses;
 		}
+		
 
 
 		public struct RaycastResult { public Vector2i Pos; public GridCasting2D.Hit Hit; }
