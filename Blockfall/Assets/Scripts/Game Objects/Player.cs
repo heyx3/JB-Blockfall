@@ -224,11 +224,53 @@ namespace GameObjects
 					if (aimDir == Vector2.zero)
 						aimDir = new Vector2(Mathf.Sign(MyTr.localScale.x), 0.0f);
 
-					//TODO: Sweep the block, find the closest time to contact, and see if the block there gets in the way of this player.
+					//TODO: Test.
 					//Only throw the block if there's at least one empty tile in front of the player.
-					if (!Board.CastRay(new Ray2D(BlockHoldIndicator.position, aimDir),
-										(posI, bType) => !GameBoard.Board.IsSolid(bType),
-										ref dummyVar, 1.001f))
+					//if (!Board.CastRay(new Ray2D(BlockHoldIndicator.position, aimDir),
+					//					(posI, bType) => !GameBoard.Board.IsSolid(bType),
+					//					ref dummyVar, 1.001f))
+					//{
+					//}
+
+					//Sweep the block, find the closest time to contact,
+					//    and see if the block there gets in the way of this player.
+					ThrownBlock prefabTB = Consts.Instance.ThrownBlockPrefab.GetComponent<ThrownBlock>();
+					Vector2 throwStart = BlockHoldIndicator.position,
+							throwMin = throwStart - (prefabTB.CollisionBoxSize * 0.5f);
+					const float maxDist = 5.0f;
+					Vector2 movement = aimDir * maxDist;
+					HitsPerFace hitsPerFace;
+					bool hit = TrySweep(new Rect(throwMin, prefabTB.CollisionBoxSize),
+										new Vector2i(prefabTB.NCollisionRaysXFace,
+													 prefabTB.NCollisionRaysYFace),
+										ref movement, out hitsPerFace);
+					if (hit)
+					{
+						//See whether the block will get in the way of the player that threw it.
+
+						float closestT = float.PositiveInfinity;
+						if (hitsPerFace.MinX.HasValue)
+							closestT = Math.Min(closestT, hitsPerFace.MinX.Value.Hit.Distance);
+						if (hitsPerFace.MaxX.HasValue)
+							closestT = Math.Min(closestT, hitsPerFace.MaxX.Value.Hit.Distance);
+						if (hitsPerFace.MinY.HasValue)
+							closestT = Math.Min(closestT, hitsPerFace.MinY.Value.Hit.Distance);
+						if (hitsPerFace.MaxY.HasValue)
+							closestT = Math.Min(closestT, hitsPerFace.MaxY.Value.Hit.Distance);
+
+						//Get the block's new position and the player's predicted position
+						//    at the moment of impact.
+						Vector2 newBlockPos = throwStart + (aimDir * closestT);
+						Rect newBlockBnds = new Rect(newBlockPos - (prefabTB.CollisionBoxSize * 0.5f),
+													 prefabTB.CollisionBoxSize),
+							 currentPlayerBnds = MyCollRect,
+							 newPlayerBnds = new Rect(currentPlayerBnds.min +
+														  (new Vector2(LastMoveSpeedX, VerticalSpeed) * closestT),
+													  currentPlayerBnds.size);
+						hit = newBlockBnds.Overlaps(newPlayerBnds);
+					}
+
+					if (hit)
 					{
 						GameObject thrownBlock = Instantiate(Consts.Instance.ThrownBlockPrefab);
 

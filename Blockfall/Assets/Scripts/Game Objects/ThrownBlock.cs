@@ -58,6 +58,8 @@ namespace GameObjects
 			ActionScheduler.Instance.Schedule(() => Destroy(gameObject), 5);
 
 			Board[tilePos] = BlockType;
+
+			//TODO: Push any hit players away in the opposite direction of this block's velocity.
 		}
 	}
 }
