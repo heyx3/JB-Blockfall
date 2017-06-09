@@ -26,7 +26,7 @@ namespace GameBoard
 
 
 		public int SpriteLayer = 1;
-		
+
 		public int WidthToGenerate = 20,
 				   HeightToGenerate = 35;
 
@@ -40,7 +40,7 @@ namespace GameBoard
 		public Vector2i Size { get { return new Vector2i(Width, Height); } }
 
 		public Vector2 CenterWorldPos { get { return new Vector2(Width * 0.5f, Height * 0.5f); } }
-		
+
 
 		public bool IsInBoard(Vector2i tilePos)
 		{
@@ -58,7 +58,7 @@ namespace GameBoard
 					sprs.Add(t.Spr);
 				SpritePool.Instance.DeallocateSprites(sprs);
 			}
-			
+
 			//Create the new sprites.
 			tiles = new Tile[_tiles.GetLength(0), _tiles.GetLength(1)];
 			List<SpriteRenderer> newSprs = SpritePool.Instance.AllocateSprites(Width * Height, null,
@@ -67,28 +67,22 @@ namespace GameBoard
 
 			//Place the sprites into the tiles.
 			int i = 0;
-			for (int y = 0; y < Height; ++y)
+			foreach (Vector2i pos in tiles.AllIndices())
 			{
-				for (int x = 0; x < Width; ++x)
-				{
-					Vector2i pos = new Vector2i(x, y);
+				newSprs[i].sprite = GetSpriteFor(_tiles.Get(pos));
+				tiles.Set(pos, new Tile(_tiles.Get(pos), newSprs[i]));
 
-					newSprs[i].sprite = GetSpriteFor(_tiles[x, y]);
-					tiles[x, y] = new Tile(_tiles[x, y], newSprs[i]);
+				Transform tr = tiles.Get(pos).Spr.transform;
+				tr.position = ToWorldPos(pos);
 
-					Transform tr = tiles[x, y].Spr.transform;
-					tr.position = ToWorldPos(pos);
-
-					i += 1;
-				}
+				i += 1;
 			}
 		}
 		public void Reset(Vector2i nTiles, Func<Vector2i, BlockTypes> tileFactory)
 		{
 			BlockTypes[,] tempArray = new BlockTypes[nTiles.x, nTiles.y];
-			for (int y = 0; y < tempArray.GetLength(1); ++y)
-				for (int x = 0; x < tempArray.GetLength(0); ++x)
-					tempArray[x, y] = tileFactory(new Vector2i(x, y));
+			foreach (Vector2i pos in tempArray.AllIndices())
+				tempArray.Set(pos, tileFactory(pos));
 
 			Reset(tempArray);
 		}
@@ -197,19 +191,16 @@ namespace GameBoard
 			tileContainer = new GameObject("Tile Sprites").transform;
 
 			tiles = new Tile[WidthToGenerate, HeightToGenerate];
-			for (int y = 0; y < Height; ++y)
+			foreach (Vector2i pos in tiles.AllIndices())
 			{
-				for (int x = 0; x < Width; ++x)
-				{
-					GameObject go = new GameObject(x.ToString() + " " + y);
-					go.transform.position = ToWorldPos(new Vector2i(x, y));
-					go.transform.parent = tileContainer;
+				GameObject go = new GameObject(pos.ToString());
+				go.transform.position = ToWorldPos(pos);
+				go.transform.parent = tileContainer;
 
-					SpriteRenderer spr = go.AddComponent<SpriteRenderer>();
+				SpriteRenderer spr = go.AddComponent<SpriteRenderer>();
 
-					tiles[x, y] = new Tile(BlockTypes.Empty, spr);
-					this[new Vector2i(x, y)] = BlockTypes.Empty;
-				}
+				tiles.Set(pos, new Tile(BlockTypes.Empty, spr));
+				this[pos] = BlockTypes.Empty;
 			}
 
 			Generator.Generate(this, new Vector2i(), new Vector2i(Width - 1, Height - 1));

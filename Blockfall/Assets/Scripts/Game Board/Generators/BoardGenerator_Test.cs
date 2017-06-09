@@ -11,9 +11,8 @@ namespace GameBoard.Generators
 
 		public override void Generate(Board b, Vector2i minCorner, Vector2i maxCorner)
 		{
-			for (Vector2i posI = minCorner; posI.y <= maxCorner.y; ++posI.y)
-				for (posI.x = minCorner.x; posI.x <= maxCorner.x; ++posI.x)
-					b[posI] = (posI.y < BlockHeight ? BlockTypes.Empty : BlockTypes.Normal);
+			foreach (Vector2i posI in new Vector2i.Iterator(minCorner, maxCorner + 1))
+				b[posI] = (posI.y < BlockHeight ? BlockTypes.Empty : BlockTypes.Normal);
 		}
 	}
 }

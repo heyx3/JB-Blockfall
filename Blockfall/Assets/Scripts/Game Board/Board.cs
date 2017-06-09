@@ -67,7 +67,7 @@ namespace GameBoard
 		public bool IsSolid(Vector2i tile) { return IsSolid(this[tile]); }
 		public bool CanPickUp(Vector2i tile) { return CanPickUp(this[tile]); }
 
-		
+
 		public Sprite Sprite_ImmobileBlock,
 					  Sprite_NormalBlock;
 
@@ -89,7 +89,7 @@ namespace GameBoard
 			}
 		}
 
-		
+
 		public Vector2 ToWorldPos(Vector2i tilePos)
 		{
 			return new Vector2(tilePos.x + 0.5f, tilePos.y + 0.5f);
@@ -124,74 +124,57 @@ namespace GameBoard
 		public bool Any(Vector2i regionMin, Vector2i regionMax,
 						Func<Vector2i, BlockTypes, bool> predicate)
 		{
-			for (Vector2i pos = regionMin; pos.y <= regionMax.y; ++pos.y)
-				for (pos.x = regionMin.x; pos.x <= regionMax.x; ++pos.x)
-					if (predicate(pos, this[pos]))
-						return true;
+			foreach (Vector2i pos in new Vector2i.Iterator(regionMin, regionMax + 1))
+				if (predicate(pos, this[pos]))
+					return true;
 			return false;
 		}
 		public bool All(Vector2i regionMin, Vector2i regionMax,
 						Func<Vector2i, BlockTypes, bool> predicate)
 		{
-			for (Vector2i pos = regionMin; pos.y <= regionMax.y; ++pos.y)
-				for (pos.x = regionMin.x; pos.x <= regionMax.x; ++pos.x)
-					if (!predicate(pos, this[pos]))
-						return false;
+			foreach (Vector2i pos in new Vector2i.Iterator(regionMin, regionMax + 1))
+				if (!predicate(pos, this[pos]))
+					return false;
 			return true;
 		}
 
 		/// <summary>
-		/// The returned positions are the min corner (i.e. bottom-left)
-		///     of each area that the given object can spawn in.
+		/// Finds all potential spawn positions for an object of the given size
+		///     in the given inclusive range.
+		/// The returned positions are the min corners (i.e. bottom-left)
+		///     of each area that the given object can spawn at.
 		/// </summary>
 		public List<Vector2i> GetSpawnablePositions(Vector2i toSearchMin, Vector2i toSearchMax,
 													Vector2i objectSize, bool mustSpawnOnGround,
 													Func<Vector2i, BlockTypes, bool> isSpawnableIn)
 		{
-			UnityEngine.Assertions.Assert.IsTrue(toSearchMax.x > toSearchMin.x, "Xs are bad");
-			UnityEngine.Assertions.Assert.IsTrue(toSearchMax.y > toSearchMin.y, "Ys are bad");
+			Func<Vector2i, BlockTypes, bool> isBlockSolid = (posI, bType) => IsSolid(bType);
+
+			Assert.IsTrue(toSearchMax.x > toSearchMin.x, "Xs are bad");
+			Assert.IsTrue(toSearchMax.y > toSearchMin.y, "Ys are bad");
 
 			Vector2i toSearchSize = toSearchMax - toSearchMin + new Vector2i(1, 1);
 
 			List<Vector2i> poses = new List<Vector2i>();
-            object listLock = 1754235633;
 
-            //Check evey row for valid spawn places.
-            //Split this computation across threads to speed it up.
-			//TODO: With infinite boards, getting the block at any position may create a new chunk, using the Unity API. This means we can't run this on a thread.
-			int endX = toSearchMax.x - objectSize.x + 1;
-            ThreadedRunner.Run(4, toSearchSize.y - objectSize.y + 1, (startI, endI) =>
-            {
-                //Go through every block this thread is supposed to cover.
-                for (int j = startI; j <= endI; ++j)
-                {
-					int _y = j + toSearchMin.y;
+			Vector2i inclusiveSearchMax = toSearchMax - objectSize + 1;
+			foreach (Vector2i startObject in new Vector2i.Iterator(toSearchMin, inclusiveSearchMax + 1))
+			{
+				Vector2i endObject = startObject + objectSize - 1;
 
-                    for (int x = toSearchMin.x; x <= endX; ++x)
-                    {
-                        Vector2i startBounds = new Vector2i(x, _y),
-                                 endBounds = startBounds + objectSize - new Vector2i(1, 1);
-
-						//If this region is on solid ground (or doesn't have to be),
-						//    and it doesn't touch any solid blocks itself,
-						//    then it is a valid spawn position.
-						if ((!mustSpawnOnGround ||
-							 All(startBounds.LessY, endBounds.LessY,
-								 (posI, bType) => IsSolid(bType))) &&
-							All(startBounds, endBounds, isSpawnableIn))
-						{
-							lock(listLock)
-							{
-								poses.Add(startBounds);
-							}
-						}
-                    }
-                }
-            });
+				//If this region is on solid ground (or doesn't have to be),
+				//    and it doesn't touch any solid blocks itself,
+				//    then it is a valid position.
+				if ((!mustSpawnOnGround || All(startObject.LessY, endObject.LessY, isBlockSolid)) &&
+					All(startObject, endObject, isSpawnableIn))
+				{
+					poses.Add(startObject);
+				}
+			}
 
             return poses;
 		}
-		
+
 
 
 		public struct RaycastResult { public Vector2i Pos; public GridCasting2D.Hit Hit; }

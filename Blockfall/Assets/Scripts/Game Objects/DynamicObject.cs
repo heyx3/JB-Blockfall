@@ -148,7 +148,7 @@ namespace GameObjects
 
 			return wasHit;
 		}
-		
+
 		public struct HitsPerFace
 		{
 			public GameBoard.Board.RaycastResult? MinX, MinY, MaxX, MaxY;
@@ -209,12 +209,12 @@ namespace GameObjects
 		public int NCollisionRaysXFace = 3,
 				   NCollisionRaysYFace = 3;
 
-		
+
 		public Rect MyCollRect { get { Rect r = new Rect(Vector2.zero, CollisionBoxSize); r.center = MyTr.position; return r; } }
 
 		public Transform MyTr { get; private set; }
 		public SpriteRenderer MySpr { get; protected set; }
-		
+
 
 		protected virtual void Awake()
 		{
@@ -257,7 +257,7 @@ namespace GameObjects
 			/// </summary>
 			Teleport,
 		}
-		
+
 		/// <summary>
 		/// Tries to move this object the given amount.
 		/// Returns whether a tile was hit during this movement.
@@ -289,39 +289,38 @@ namespace GameObjects
 					hitsPerFace = new HitsPerFace();
 
 					Rect currentBnds = MyCollRect;
-					
+
 					//Get the position after the movement.
 					Rect newBnds = new Rect(currentBnds.min + moveAmount, currentBnds.size);
 
 					//If the new position touches any solid tiles, sweep.
 					Vector2i boundsMinI = Board.ToTilePos(newBnds.min),
 							 boundsMaxI = Board.ToTilePos(newBnds.max);
-					for (Vector2i posI = boundsMinI; !didHit && posI.y <= boundsMaxI.y; ++posI.y)
-						for (posI.x = boundsMinI.x; posI.x <= boundsMaxI.x; ++posI.x)
-							if (Board.IsSolid(posI))
-							{
-								//Sweep.
-								bool hitSomething = TrySweep(currentBnds,
-															 new Vector2i(NCollisionRaysXFace,
-																		  NCollisionRaysYFace),
-															 ref moveAmount, out hitsPerFace);
-								UnityEngine.Assertions.Assert.IsTrue(hitSomething);
-									
-								{
-									//Raise events for the various walls that were hit.
-									if (hitsPerFace.MinX.HasValue)
-										OnHitRightSide(hitsPerFace.MinX.Value.Pos);
-									if (hitsPerFace.MaxX.HasValue)
-										OnHitLeftSide(hitsPerFace.MaxX.Value.Pos);
-									if (hitsPerFace.MinY.HasValue)
-										OnHitCeiling(hitsPerFace.MinY.Value.Pos);
-									if (hitsPerFace.MaxY.HasValue)
-										OnHitFloor(hitsPerFace.MaxY.Value.Pos);
+					foreach (Vector2i posI in new Vector2i.Iterator(boundsMinI, boundsMaxI + 1))
+					{
+						if (Board.IsSolid(posI))
+						{
+							//Sweep.
+							bool hitSomething = TrySweep(currentBnds,
+														 new Vector2i(NCollisionRaysXFace,
+																	  NCollisionRaysYFace),
+														 ref moveAmount, out hitsPerFace);
+							UnityEngine.Assertions.Assert.IsTrue(hitSomething);
 
-									didHit = true;
-									break;
-								}
-							}
+							//Raise events for the various walls that were hit.
+							if (hitsPerFace.MinX.HasValue)
+								OnHitRightSide(hitsPerFace.MinX.Value.Pos);
+							if (hitsPerFace.MaxX.HasValue)
+								OnHitLeftSide(hitsPerFace.MaxX.Value.Pos);
+							if (hitsPerFace.MinY.HasValue)
+								OnHitCeiling(hitsPerFace.MinY.Value.Pos);
+							if (hitsPerFace.MaxY.HasValue)
+								OnHitFloor(hitsPerFace.MaxY.Value.Pos);
+
+							didHit = true;
+							break;
+						}
+					}
 				} break;
 				case MovementTypes.Sweep: {
 					if (TrySweep(MyCollRect, new Vector2i(NCollisionRaysXFace,

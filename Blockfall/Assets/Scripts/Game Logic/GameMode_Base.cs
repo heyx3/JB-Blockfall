@@ -44,7 +44,7 @@ namespace GameLogic
 																	Board.ToTilePos(viewBnds.max),
 																	Board.ToTilePos(pBnds.max) -
 																		Board.ToTilePos(pBnds.min) +
-																		new Vector2i(1, 1),
+																		1,
 																	false,
 																	(bP, b) => b == GameBoard.BlockTypes.Empty);
 
@@ -52,14 +52,14 @@ namespace GameLogic
 			p.gameObject.SetActive(false);
 			Vector2i newPos = spawnPoses[UnityEngine.Random.Range(0, spawnPoses.Count - 1)];
 			ActionScheduler.Instance.Schedule(() =>
-				{
-					p.MyTr.position = Board.ToMinCorner(newPos) +
-										new Vector2(pBnds.width, pBnds.height) * 0.5f;
-					p.gameObject.SetActive(true);
+			{
+				p.MyTr.position = Board.ToMinCorner(newPos) +
+									new Vector2(pBnds.width, pBnds.height) * 0.5f;
+				p.gameObject.SetActive(true);
 
-					p.TimeTillVulnerable = Consts.SpawnInvincibilityTime;
-					p.Blinker.Start();
-				}, GameSettings_Base.CurrentSettings.RespawnTime);
+				p.TimeTillVulnerable = Consts.SpawnInvincibilityTime;
+				p.Blinker.Start();
+			}, GameSettings_Base.CurrentSettings.RespawnTime);
 		}
 	}
 }

@@ -76,26 +76,25 @@ namespace GameBoard.Generators
 			GenerateNoise(out horzLine, out vertLine, minCorner, maxCorner);
 			Vector2i range = maxCorner - minCorner + new Vector2i(1, 1);
 
-			for (Vector2i posI = minCorner; posI.y <= maxCorner.y; ++posI.y)
+			foreach (Vector2i posI in new Vector2i.Iterator(minCorner, maxCorner + 1))
 			{
-				for (posI.x = minCorner.x; posI.x <= maxCorner.x; ++posI.x)
+				if (posI.IsWithin(Vector2i.Zero, range - 1))
 				{
-					if (posI.x < 0 || posI.y < 0 || posI.x >= range.x || posI.y >= range.y)
-						b[posI] = BlockTypes.Immobile;
-					else
-					{
-						float value = Mathf.Pow(horzLine[posI.x],
-												HorizontalPower.Evaluate((float)posI.x /
-																		 (float)(range.x - 1))) *
-									  Mathf.Pow(vertLine[posI.y],
-												VerticalPower.Evaluate((float)posI.y /
-																	   (float)(range.y - 1)));
-						b[posI] = (value > ImmobileThreshold ?
-									   BlockTypes.Immobile :
-									   (value > NormalThreshold ?
-											BlockTypes.Normal :
-											BlockTypes.Empty));
-					}
+					float value = Mathf.Pow(horzLine[posI.x],
+											HorizontalPower.Evaluate((float)posI.x /
+																	 (float)(range.x - 1))) *
+								  Mathf.Pow(vertLine[posI.y],
+											VerticalPower.Evaluate((float)posI.y /
+																   (float)(range.y - 1)));
+					b[posI] = (value > ImmobileThreshold ?
+								   BlockTypes.Immobile :
+								   (value > NormalThreshold ?
+										BlockTypes.Normal :
+										BlockTypes.Empty));
+				}
+				else
+				{
+					b[posI] = BlockTypes.Immobile;
 				}
 			}
 		}

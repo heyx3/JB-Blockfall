@@ -27,7 +27,7 @@ namespace GridCasting2D
 		public static bool Contains(this Walls w, Walls w2) { return (w & w2) == w2; }
 		public static Walls Add(this Walls w, Walls w2) { return (w | w2); }
 		public static Walls Remove(this Walls w, Walls w2) { return w & ~w2; }
-		
+
 		public static Walls RemoveXs(this Walls w) { return w.Remove(Walls.MinX | Walls.MaxX); }
 		public static Walls RemoveYs(this Walls w) { return w.Remove(Walls.MinY | Walls.MaxY); }
 
@@ -138,7 +138,7 @@ namespace GridCasting2D
 					temp.Pos = new Vector2(x, max.y);
 					hits.TryInsert(temp);
 				}
-			} 
+			}
 			//If any two hits are identical, then a corner was actually hit.
 			hits.FoldDuplicates();
 
@@ -282,7 +282,7 @@ namespace GridCasting2D
 		}
 	}
 
-	
+
 	/// <summary>
 	/// Handles raycasting against a uniform axis-aliged grid of squares.
 	/// </summary>
@@ -372,7 +372,7 @@ namespace GridCasting2D
 					maxDist = Math.Min(maxDist, endH.Distance);
 				}
 			}
-			
+
 
 			//Raycast the first cell.
 			Rect cellBnds = ToWorldBounds(posI);
@@ -433,13 +433,18 @@ namespace GridCasting2D
 		/// <param name="cellBnds">The world bounds of this cell.</param>
 		/// <param name="gridCellStart">The position where the ray enters the cell.</param>
 		/// <param name="gridCellEnd">The position where the ray exits the cell.</param>
-		/// <param name="outDataIfHit">Data to output to the caller about this cell, if it was hit.</param>
+		/// <param name="outDataIfHit">
+		/// Data about this cell to send to the caller, if this cell was hit.
+		/// </param>
 		protected abstract bool CastCell(Vector2i gridCellIndex, Rect cellBnds, Ray2D ray,
 										 Hit gridCellStart, Hit gridCellEnd,
 										 ref ExtraData outDataIfHit);
 		/// <summary>
 		/// A simpler version of "CastCell()" that is called on the cell containing the ray's origin.
 		/// </summary>
+		/// <param name="outDataIfHit">
+		/// Data about this cell to send to the caller, if this cell was hit.
+		/// </param>
 		protected abstract bool CastInitialCell(Vector2i gridCellIndex, Ray2D ray, Vector2 invRayDir,
 												ref ExtraData outDataIfHit, float epsilon);
 	}
@@ -458,7 +463,10 @@ namespace GridCasting2D
 
 		public MyNullable(T value) { hasValue = true; val = value; }
 	}
-	
+
+	/// <summary>
+	/// A rectangle of Vector2i coordinates, represented as inclusive min and max.
+	/// </summary>
 	public struct Region
 	{
 		public Vector2i Min, Max;

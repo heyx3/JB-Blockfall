@@ -3,6 +3,10 @@ using System.Collections;
 using UnityEngine;
 
 
+/// <summary>
+/// A singleton script that schedules actions to be executed after a certain amount of time.
+/// Does not use any extra threads.
+/// </summary>
 public class ActionScheduler : Singleton<ActionScheduler>
 {
 	public void Schedule(Action toDo, float time) { StartCoroutine(DoActionCoroutine(toDo, time)); }
