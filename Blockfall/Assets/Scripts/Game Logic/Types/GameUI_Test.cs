@@ -41,7 +41,7 @@ namespace GameLogic
 			TeamHitIndicators = new GameObject[TeamHitIndicatorNames.Length];
 			for (int i = 0; i < TeamHitIndicators.Length; ++i)
 			{
-				Transform tr2 = tr.FindChild(TeamHitIndicatorNames[i]);
+				Transform tr2 = tr.Find(TeamHitIndicatorNames[i]);
 				TeamHitIndicators[i] = tr2.gameObject;
 			}
 		}

@@ -105,7 +105,7 @@ namespace GameObjects
 		}
 		private Transform TryGetChild(string name)
 		{
-			Transform tr = MyTr.FindChild(name);
+			Transform tr = MyTr.Find(name);
 			UnityEngine.Assertions.Assert.IsNotNull(tr, "Child named \"" + name + "\" does not exist in player");
 			return tr;
 		}
